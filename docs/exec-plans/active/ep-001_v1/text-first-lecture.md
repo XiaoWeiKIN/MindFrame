@@ -22,9 +22,9 @@ No runtime orchestration, dependency, schema, renderer, paid API or native edito
 - [x] One real synthetic PNG maps to multiple scenes; import/export preserves its bytes and separate screen_text.
 - [x] Unsupported motion/layers/background_video fields remain rejected; untimed export stays untimed.
 - [x] Existing chat-material CLI smoke passed.
-- [ ] Existing full renderer/media job completion: still in progress at this evidence update; its static and build stages have passed.
+- [x] Existing full renderer/media job concluded success, including static/build, actual legacy render, media inspection and artifact upload steps.
 
-Inspected full decoded primary-job logs and actual step summaries for run36583386083, job109457158543 / chat-materials. GitHub checked out test merge f971120b3e840bae3dab363bdd595d7fa4e60fe3 of ec8e3b8 into main0df0319. The job completed successfully at 2026-09-29T14:33:13Z. Commands were cargo clippy --workspace --all-targets -- -D warnings, cargo test --workspace, cargo build --workspace, and python3 scripts/chat_smoke.py --out output/chat-smoke.
+Inspected full decoded primary-job logs and actual step summaries for run36583386083, job109457158543 / chat-materials. GitHub checked out test merge f971120b3e840bae3dab363bdd595d7fa4e60fe3 of ec8e3b8 into main0df0319. The primary job completed successfully at 2026-09-29T14:33:13Z. Commands were cargo clippy --workspace --all-targets -- -D warnings, cargo test --workspace, cargo build --workspace, and python3 scripts/chat_smoke.py --out output/chat-smoke.
 
 Actual new test names:
 - lecture_intent_does_not_extend_assets_schema
@@ -33,11 +33,13 @@ Actual new test names:
 
 The log reports 4 boundary + 3 lecture + 8 material + 4 visual-director + 8 core tests, all passed. It records untimed and supplied-WAV/cue smoke exports. Artifact11040262439 contains47 fixture files; ZIP38,596bytes, SHA-256 9d6028abfae87e6a576363e5ba8d8e35d2be680aa3e9009c3577544bd045ce3c. Fixtures are synthetic static images and silent WAV, not generated background video, speech or visual-quality evidence. Hosted artifacts can expire.
 
-Local Rust was not run. Local standalone links, existing JSON syntax and required guidance checks passed. Standalone package's canonical Skill/worksheet blob hashes match the submitted files. This evidence update changes documentation only; it is not a new independently verified code revision. Historical24-test evidence remains unchanged. Full-media job109457157937 must be reported separately; no whole-workflow success is inferred from primary success.
+The full-media job109457157937 was still running when the first evidence update was made. A subsequent read confirmed status completed / conclusion success with every recorded step successful. This conclusion comes from actual job/step results; full decoded verify-job logs and its MP4 bytes were not re-inspected in this task. The media test is the preserved legacy path, not new-format layered-video acceptance.
+
+Local Rust was not run. Local standalone links, existing JSON syntax and required guidance checks passed. Standalone package's canonical Skill/worksheet blob hashes match the submitted files. Follow-up evidence updates change documentation only; they are not new independently verified code revisions. Historical24-test evidence remains unchanged.
 
 ## Limits and recovery
 
-The Skill instructs layered production; this change does not implement MP4-background import, animated overlays, word-level captions or automatic new-format rendering. Those require a separate bounded implementation and actual media acceptance. Existing material commands remain available; working Markdown and extra motion files are not auto-exported.
+The scoped Skill change and functional checks are complete; PR remains unmerged. The Skill instructs layered production; this change does not implement MP4-background import, animated overlays, word-level captions or automatic new-format rendering. Those require a separate bounded implementation and actual media acceptance. Existing material commands remain available; working Markdown and extra motion files are not auto-exported.
 
 Old project requests do not auto-update. Reinstall and init a new directory or supply the updated Skill and worksheet. Do not overwrite existing projects. Preserve previous verification records. Main is not modified or auto-merged by this task; PR #3 holds implementation and current check status.
 
