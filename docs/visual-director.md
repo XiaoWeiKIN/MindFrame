@@ -1,48 +1,65 @@
 # 使用 MindFrame Visual Director
 
-这是创作工作流，不是新的图像后端。重点是把已写好的精华文章转成独立图文页，保留概念、金句、公式与论证边界。没有增加收费 API、后台服务、JSON 协议或新的渲染命令。
+同一份原文可走两种制作路径：**文字优先的知识讲解**，或**独立阅读的图文页**。
+这是创作Skill，不是新的图像/视频后端。它保留概念、论点、金句、公式与限定，组织表达与素材交接。
+
+## 知识讲解：本轮沉淀的路径
+
+用户要简单背景、核心要义突出、后加口播和字幕时，采用text-first-lecture：
 
 ```mermaid
 flowchart LR
-    A[选定原文] --> B[锚点与来源]
-    B --> C[逐页文字与关系图]
-    C --> D[统一视觉规则]
-    D --> E[宿主图像工具逐页生成]
-    E --> F[实际图片检查]
-    F --> G[现有 MindFrame 导入与导出]
+    A[指定原文] --> B[概念 / 论点 / 公式与来源]
+    B --> C[讲解稿与重点层]
+    C --> D[无字背景 + 独立排版]
+    C --> E[实际配音后对齐字幕]
+    D --> F[剪辑中分层合成]
+    E --> F
 ```
 
-## 通过 CLI 取得完整工作流
+背景层负责气氛，重点层负责概念/公式，口播负责展开，字幕跟随实际声音。
+背景可以整期复用，不因换一句话重新生图；文字与公式不烘焙到背景里。
 
-从包含本次改动的版本重新安装，然后使用一个新输出目录：
+预设 **Ocean Depth / 深海星辰**：墨蓝底、柔白字、少量暖金，低对比海面或稀疏星空，中央阅读区安静。
+海面慢动、星点缓移属于运动设计；静态图不能算循环视频。先验证代表镜头，再扩展其余镜头。
+风格可替换，分层方法不变。参考截图不证明时序，也不授权复制账号标识。
+画幅按用户已确认的母版，不因“抖音”自动切竖屏；项目preset不会改变真实图片尺寸。
+
+可直接给助手的请求：
+
+> 按MindFrame Visual Director的知识讲解模式处理附件。保留原文概念、论点、金句和公式，少字但不丢限定。采用深海星辰风格，16:9母版，无字背景复用，重点文字/公式独立排版，口播字幕另做。先给讲解稿、重点层与逐句触发方案；生成素材时区分静态底图、动态背景和最终视频，不做九宫格或密集海报。
+
+这只是示例请求，不是CLI参数；没有新增`--style`或动画渲染命令。
+
+## 通过CLI取得完整工作流
+
+从包含本次修改的分支安装，在新目录初始化：
 
 ```bash
 cargo install --path crates/mindframe-cli --force
 mindframe init /path/to/article.md --out projects/article-visual --preset douyin
 ```
 
-把 `projects/article-visual/source.md` 和 `chat-request.md` 交给聊天助手。新版请求在编译时内嵌完整的视觉导演与逐页工作表，并附上实际 Storyboard/Assets Schema。在仓库之外运行已安装 CLI 也不需要联网获取这些文件。
+把生成的source.md和chat-request.md交给聊天助手。请求内嵌完整Skill和逐镜工作表，再附实际JSON Schema。
+指定目标母版画幅；preset是已有提示，不代表已裁切或确认平台规格。
+既有请求不自动升级，不覆盖原项目；用同一原文新建目录或补充新版Skill。
 
-已有项目的 `chat-request.md` 不会自动改变；不要覆盖已有目录。可以用同一原文初始化新目录，或将新 Skill 与模板作为补充发给助手。导入格式没有变，不需要迁移旧素材。
+独立使用时，提供`skills/mindframe-visual-director/SKILL.md`及`references/page-plan.md`。
+文件在仓库里不代表已安装到聊天宿主，也不赋予未暴露的图像型号选择能力。
 
-示例请求：
+## 已支持与仍需制作的部分
 
-> 按 MindFrame Visual Director，把附件做成8张独立抖音图文，保留路径依赖、反身性和原文核心公式。先确定各页文字与逻辑关系，再逐页生成。原文是内容依据，不再压成摘要；不要做九宫格。每页的准确文字、公式和必要限定都需要审核。
+| 产物/行为 | 当前边界 |
+|---|---|
+| 原文、口播与来源引用 | 使用现有Storyboard；script.md为派生输出 |
+| 静态无字底图与重点叠字文本 | 现有Assets支持实际PNG/JPEG/WebP与screen_text |
+| 同一底图跨镜头复用 | 每个scene显式引用真实文件，导入会复制为场景文件 |
+| 逐句字幕 | 仅实际WAV与核对过的句级cues可导出SRT；无音频不估时 |
+| 语义触发、P0/P1/P2、LaTeX、布局、风格 | 记录于visual-plan.md，不擅加JSON字段 |
+| 实际背景MP4、词级字幕、透明图层与多轨合成 | 当前素材CLI不支持，需另外制作与交接 |
+| 实图、实播与听音审核 | review.md分项记录pass/revise/unverified，不能由CI替代 |
 
-如果只需要剪辑配图，明确说“剪辑配图模式，正文后期叠字”；图文成品则需要每页本身完整可读。页数和9:16是工作选择，不是对平台规格或流量的保证。
-
-## 文件与职责
-
-| 文件 | 用途 | CLI 是否自动导入/导出 |
-|---|---|---|
-| storyboard.json | 唯一内容编辑源，包含旁白与引用 | 是，遵守已有Schema |
-| assets.json与实际图片 | 场景对应、真实图像与需要后期叠加的文字 | 是 |
-| visual-plan.md | 必留概念/金句/公式，P0/P1/P2，构图、风格、关系 | 否，单独保存 |
-| 逐页提示与review.md | 实际生成说明、候选图、审图观察、修订状态 | 否，单独保存 |
-
-P0/P1/P2、formula、importance、layout不是当前可任意加入JSON的新字段；使用Markdown工作记录，不破坏严格导入协议。图文已印在图片上的字，不要再填成重复的后期叠字。
-
-正式素材齐全后仍执行现有命令：
+导入可用的位图、稿件和可选录音后，仍使用原命令：
 
 ```bash
 mindframe import projects/article-visual --from ./chat-output
@@ -50,16 +67,22 @@ mindframe validate projects/article-visual
 mindframe export projects/article-visual --target jianying --out dist/article-visual
 ```
 
-每页一张真实图片，不把切割的低清九宫格冒充独立成图。没有图片不提供假路径，没有录音和核对时间点不生成假SRT。现有CLI不负责生成图片、排版或验证实际语义/美感。
+动态背景不写入assets.images。visual-plan/review及额外媒体不会自动复制，另行保存。
+新素材格式不能直接走旧produce/render；此改动没有打通新格式的自动视频合成，也不是剪映原生工程。
 
-## 独立使用 Skill
+## 图文成品模式仍保留
 
-完整目录为 `skills/mindframe-visual-director/`。在支持文件阅读的聊天中提供 `SKILL.md` 和 `references/page-plan.md` 即可读取工作流；在支持Skill安装的宿主中按该宿主的机制加载完整目录。仓库中存在文件不等于已自动安装，更不代表可以指定当前工具未暴露的图像型号。
+明确要求滑动图文时每页自身完整可读，按源文分页并独立生成，不以九宫格或无字底图冒充成品。
+[原图文示例](../skills/mindframe-visual-director/examples/walkthrough.md)使用合成文本，未包含真实生图。
+新路径是另一种呈现方式，不改变用户已经选定的图文订单。
 
-完整示例见 [walkthrough](../skills/mindframe-visual-director/examples/walkthrough.md)，采用原创合成材料，含分支、闭环和公式三页方案。示例没有生成图片，视觉检查均为unverified；其JSON用于测试，缺少实际图片时不可直接导入。
+## 验证
 
-## 验证边界
+```bash
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
 
-`cargo test --workspace` 会覆盖新请求的内嵌内容、仓库外离线运行、示例引用/公式/现有协议兼容，以及实际合成图导入导出。`cargo clippy --workspace --all-targets -- -D warnings` 检查Rust代码。
-
-这些检查不证明图像模型会完全遵守说明，也不证明中文排版、哲学解读或传播效果。真实生图后仍需逐页查看，并记录pass/revise/unverified及观察。当前改动不安装第三方Skill、不提交用户知识库、不改原生剪映工程或自动发布能力。
+新增测试检查：仓库外无密钥init完整带出分层/风格/时间边界；同一真实位图跨镜头导入导出且保留叠字；
+不接受未经实现的动态字段。它们不证明模型遵循风格，不证明背景循环、字幕同步或视频质量。
+旧有CI和媒体门禁不放宽；没有增加依赖、API调用、协议字段或发布行为。

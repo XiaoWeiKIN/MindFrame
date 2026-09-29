@@ -1,27 +1,26 @@
 ---
 name: mindframe-author
-description: 基于用户提供的文档，在聊天中组织观点、编写口播并使用视觉导演逐页生成概念图文或视频配图，输出 MindFrame 本地可导入的素材。
+description: 基于指定原文编写忠实讲解稿，并通过视觉导演组织文字优先的知识视频分层素材或独立图文；保留概念、金句、公式与来源，交接现有MindFrame文件协议。
 ---
 
 # MindFrame Author
 
-按仓库 [chat-authoring.md](../../prompts/chat-authoring.md) 执行创作。
-使用 `mindframe init` 生成的 chat-request.md 获取当前的 Storyboard/Assets Schema，
-不要根据记忆发明字段或猜测用户知识库路径。新版请求已内嵌完整的视觉导演工作流与工作表，
-拿到请求时不需要另装 Skill 或再次读取仓库才能继续。
+按 [chat-authoring.md](../../prompts/chat-authoring.md) 创作。
+先读取 `mindframe init` 的chat-request.md与原文，取得实际Storyboard/Assets Schema，不能凭记忆造字段。
+请求已内嵌完整 [mindframe-visual-director](../mindframe-visual-director/SKILL.md) 与工作表；无需额外安装才能阅读。
 
-文章图文、概念卡与知识视频配图进入 [mindframe-visual-director](../mindframe-visual-director/SKILL.md)。
-作者负责忠实内容与单一分镜编辑源；导演负责概念/金句/公式锚点、分页、视觉关系、共享风格、
-单页生图和实际图片检查。精华原文不反复摘要，不把作者的系统类比包装成古人名言或定律。
+作者负责单一口播编辑源与论证忠实，导演负责信息层级、模式、风格和实际素材检查。
+用户要视频、突出文字/公式、字幕随口播出现时进入知识讲解(text-first-lecture)，不用密集带字海报。
+背景层 / 重点层 / 口播层 / 字幕层分开；无字背景可整期复用，Ocean Depth / 深海星辰为可替换风格。
+不从静态截图确认背景动画；动图要实际制作与播放，口播要实际录音，字幕同步要实际对齐。
 
-先读用户明确选择的素材，建立可核验来源。图文成品与剪辑配图分开交付：前者每页需完整可读，
-后者可以保留叠字；不以九宫格总览、提示词或无字背景冒充整组图文成品。
-使用宿主实际提供的图像生成工具，不把阅读授权扩展成整库扫描、额外服务上传或收费 API 调用。
+用户明确要滑动图文时每页完整可读，独立制作，不用九宫格替代。用户仅讨论项目或沉淀Skill时不额外生图。
+精华原文不反复摘要，不把作者的类比包装成哲学定论，不用“必然成功”等口号替换原文限定。
+只读指定素材，不扫描整库、不上传额外服务、不隐式调用收费API。真实需要生图时调用宿主实际工具。
 
-交付为 storyboard.json、assets.json 与实际媒体文件。导演的 P0/P1/P2、公式原文与审图记录
-放在 visual-plan.md / review.md 中，不能加入未经支持的 JSON 字段；这些工作文件需另行保存，
-当前 import/export 不会自动复制。没有音频不写 audio，没有核对时间点不写 cues。
-不能访问某张图片的字节时明确说明缺失，不伪造路径、文件包、完成状态或模型型号。
+storyboard.json是唯一口播编辑源。P0/P1/P2、LaTeX、语义触发、分层与运动意图放visual-plan.md；
+review.md分别记录静态、运动与同步检查。当前CLI只接实际位图、可选WAV和句级cues，
+不接MP4背景、动画字段或多轨工程；这些另行交接，工作记录也不被import/export自动复制。
+无录音不写audio，无核对时间点不写cues。不伪造媒体、路径、模型型号或完整视频完成状态。
 
-此文件是可移植 Skill 说明，只有被宿主显式读取/安装后才参与执行；不能声称仅因出现在
-GitHub 中就已自动安装。聊天与本地 CLI 仍通过实际文件交接，没有会话抓取接口。
+仓库中的Skill不等于已安装到当前宿主；读取/安装以宿主机制为准。聊天与CLI仍通过实际文件交接。
