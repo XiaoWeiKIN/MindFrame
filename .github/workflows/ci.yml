@@ -1,0 +1,42 @@
+name: MindFrame V1
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install media dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak fonts-noto-cjk
+          npm --prefix renderer/remotion install
+      - name: Rust and renderer checks
+        run: python3 scripts/check.py
+      - name: Build CLI and export contracts
+        run: |
+          cargo build --workspace
+          cargo run -p mindframe-cli -- schema --out output/schemas
+      - name: Real render with loopback provider fixtures (no paid API)
+        run: python3 scripts/integration_test.py --out output/integration
+      - name: Save inspectable test media and dependency resolution
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindframe-v1-verification
+          path: |
+            output/
+            Cargo.lock
+            renderer/remotion/package-lock.json
+          retention-days: 7

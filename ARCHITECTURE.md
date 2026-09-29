@@ -1,75 +1,72 @@
-# MindFrame Architecture
+# MindFrame V1 Architecture
 
-## Purpose
+## Scope
 
-MindFrame converts trusted knowledge material into an editable, inspectable video plan and then into rendered media.
-
-The system treats the user's knowledge base as the content source. AI components are responsible for editing, explanation structure, narration, and visual planning rather than inventing the underlying knowledge.
-
-## Main path
+A CLI for one explicit Markdown source, inspectable content planning, speech/image production,
+and two local video layouts. No vault scanning, research agent, job scheduler, Web UI or upload integration.
 
 ```mermaid
 flowchart LR
-    A["Knowledge source"] --> B["Knowledge extraction"]
-    B --> C["Narration"]
-    C --> D["Storyboard"]
-    D --> E["Visual assets"]
-    C --> F["Voice"]
-    D --> G["Remotion renderer"]
-    E --> G
-    F --> G
-    G --> H["FFmpeg"]
-    H --> I["MP4"]
+  Source[Markdown snapshot] --> Plan[Rust: plan]
+  Plan --> Board[Storyboard v1]
+  Board --> Review[Human review]
+  Review --> Produce[Rust: produce]
+  Produce --> Assets[PNG + measured WAV]
+  Produce --> Timeline[Timeline v1 / 30 fps]
+  Timeline --> Render[TypeScript / Remotion]
+  Assets --> Render
+  Render --> Video[H.264 / AAC MP4]
 ```
 
-## V0.1 boundary
+## Code boundaries
 
-The first implementation establishes only contracts that the main path requires.
+`crates/mindframe-core/src/lib.rs` owns the serializable Storyboard/Timeline contracts,
+source-reference checks, scene invariants and SRT export. Schemas are derived with schemars,
+not separately hand-maintained. The old unversioned scaffold format is intentionally unsupported.
 
-### Rust workspace
+`crates/mindframe-cli/src/main.rs` owns command selection and early argument checks.
+`pipeline.rs` owns explicit file I/O, one concrete HTTP implementation for each endpoint contract,
+local eSpeak, and FFmpeg/Node subprocesses. There are two crates, no speculative provider traits,
+no async runtime and no orchestration framework.
 
-- `mindframe-core`: domain types and storyboard validation.
-- `mindframe-cli`: command-line entrypoint and top-level orchestration.
+`renderer/remotion/render.mjs` owns local dependency checks, bundling, MP4 and cover output.
+`contract.mjs` rejects malformed timeline inputs and arbitrary media paths at the JS process boundary.
+`src/index.tsx` owns the six visual templates and non-overlapping scene entrances. Source notes and
+credentials are not included in the browser's served public directory.
 
-Additional crates are created only when there is demonstrated complexity or independent lifecycle. We do not pre-create provider, storage, or renderer abstraction layers merely for future flexibility.
+## Commands and authority
 
-### Storyboard contract
+`plan` is the only LLM stage. `produce` reads a reviewed storyboard; it does not decide what the
+source means. `render` makes no model requests and allows visual edits when scene IDs, order and
+narration remain unchanged. The source snapshot and exact quote checks preserve provenance;
+semantic entailment still requires human review.
 
-The storyboard is the stable boundary between content planning and rendering.
+## Media timing
 
-Initial visual scene types:
+Each narration item is synthesized independently, normalized to 48 kHz mono PCM, measured by
+ffprobe and padded to a multiple of 1600 samples (one 30 fps frame). Ordered clips are contiguous.
+The complete voice track, SRT and Remotion sequences share those frame boundaries. Entrance
+animations do not overlap scenes or subtract time from speech.
 
-- title;
-- key point;
-- image;
-- quote;
-- diagram;
-- code.
+## Failure and recovery
 
-The schema is intentionally small. New scene types require a concrete publishing need.
+Unsupported input, absent credentials and dependencies fail before paid operations when these
+conditions are locally knowable. There are no silent model fallbacks or paid retries. Media
+production reserves an assets directory and leaves partial output on failure; a new project is
+required for regeneration. A render writes pending files and promotes only successful outputs.
+This is a local, single-writer project workflow, not a concurrent service.
 
-## Error ownership
+## Engineering tracking
 
-- CLI validates external arguments and input paths.
-- Core validates storyboard/domain invariants.
-- Renderer validates renderer-specific constraints.
-- Internal layers do not repeat validations already guaranteed by upstream contracts.
+EP-001 uses RepoFoundry's execution-plan template fallback because its controller cannot be
+installed in the current network-restricted coding environment. Repository inspection found no
+existing EP, index or high-water state; EP-001 was allocated from that empty inventory. This is
+not a claim that Harness bootstrap, Spec activation, controller validation or archival ran.
+No accepted ADR, approved Design revision or sealed Checkpoint is fabricated.
 
-Unsupported input should fail explicitly rather than trigger multi-step fallback behavior.
+## Verification
 
-## Rendering
-
-Remotion is the intended rendering layer because the product requires programmatic text layout, diagrams, code blocks, image composition, animation, and timeline control.
-
-Rust will invoke the renderer as a separate process first. Direct media-library bindings are not part of V0.1.
-
-## Engineering governance
-
-RepoFoundry AI owns durable engineering artifacts:
-
-- architecture and design documentation;
-- ADRs for durable technical decisions;
-- execution plans for bounded implementation work;
-- checkpoints for verified progress.
-
-The repository remains the source of truth.
+`scripts/check.py` is the canonical Rust/TypeScript unit and static-check entrypoint.
+`scripts/integration_test.py` runs loopback provider contracts and real media rendering.
+CI exports generated schemas, dependency resolution, videos and verification.json. Live API
+compatibility, artistic quality and publishing suitability are distinct from fixture-test success.

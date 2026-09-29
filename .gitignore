@@ -1,4 +1,10 @@
-/target
-/output
-/node_modules
+/target/
+/output/
+**/node_modules/
+.env
+.env.*
+!.env.example
+mindframe.toml
 .DS_Store
+__pycache__/
+/tools/

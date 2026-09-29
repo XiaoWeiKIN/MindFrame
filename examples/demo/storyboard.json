@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "title": "让知识被看见",
+  "summary": "从自己的材料出发，先组织解释，再安排画面和声音。",
+  "key_points": [
+    {"text": "先确定问题，再提取观点", "sources": [{"line_start": 2, "line_end": 2, "quote": "知识分享先确定要解释的问题"}]},
+    {"text": "口播与分镜分工", "sources": [{"line_start": 3, "line_end": 4, "quote": "口播稿把书面内容改写成便于听懂的句子"}]},
+    {"text": "时间轴由实际录音决定", "sources": [{"line_start": 5, "line_end": 5, "quote": "旁白录音的实际长度决定画面和字幕的时间轴。"}]}
+  ],
+  "scenes": [
+    {"id": "intro", "narration": ["知识分享，先从一个想解释清楚的问题开始。"], "point_refs": [1], "visual": {"type": "title", "text": "让知识被看见"}, "transition": "fade"},
+    {"id": "explain", "narration": ["口播负责讲清楚，分镜负责让观点被看见。"], "point_refs": [2], "visual": {"type": "key_point", "title": "一句话，一层意思", "body": "保留原意，改写表达。\n让每个画面对应一个观点。"}, "transition": "slide"},
+    {"id": "flow", "narration": ["最后，让画面和字幕跟随真实的旁白录音。"], "point_refs": [3], "visual": {"type": "diagram", "mermaid": "flowchart TD\n A[已有知识] --> B[口播与分镜]\n B --> C[旁白与配图]\n C --> D[视频]"}, "transition": "fade"}
+  ]
+}
