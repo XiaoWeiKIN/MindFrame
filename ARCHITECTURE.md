@@ -21,10 +21,14 @@ validation and subtitle/CSV text helpers. Storyboard narration remains the only 
 Schemas are generated from Rust types; semantic quote entailment still needs human review.
 
 `crates/mindframe-cli/src/materials.rs` owns local filesystem operations, real PNG/JPEG/WebP decoding,
-PCM 16-bit WAV inspection and staged directory publication. It never calls Config, HTTP, TTS, Node or
-FFmpeg. Image paths are explicit, normalized on import and copied byte-for-byte. Only manifest-listed
-materials are copied. Complete source snapshots and configuration are not included in exports;
-selected source quotations intentionally remain in key-points.md.
+PCM 16-bit WAV inspection and staged directory publication. The init/import/validate/export path never
+calls Config, HTTP, TTS, Node or FFmpeg. Image paths are explicit, normalized on import and copied
+byte-for-byte. Only manifest-listed materials are copied. Complete source snapshots and configuration
+are not included in exports; selected source quotations intentionally remain in key-points.md.
+
+The opt-in `motion` command reuses the same validated project and invokes the local Node/Remotion
+renderer only after a real recording and complete reviewed cues exist. It does not call a model API,
+TTS provider, ASR service or the legacy paid pipeline.
 
 Project JSON distinguishes the new format from old root-level Storyboard/Timeline projects. A broken
 project marker fails rather than falling back. init creates a source snapshot and authoring handoff;
@@ -42,6 +46,23 @@ Only then export SRT. These checks do not verify speech alignment or authorship.
 The export is not a native Jianying draft or automatic timeline. CSV and Markdown document placement
 and transition intent; users create the actual editor tracks. Input image dimensions are reported,
 not silently stretched to a platform preset. No claim is made about a tested editor UI/version.
+
+## Motion rendering boundary
+
+Motion V1 is a separate local rendering boundary for chat-material projects. Rust derives an internal
+`motion-input.json` from already validated Storyboard/Assets data. Scene images remain raster assets;
+`screen_text` is a separate emphasis layer; the imported `audio/narration.wav` is the single audio track;
+sentence subtitles use supplied cue boundaries. Missing audio or cues fails before rendering.
+
+The internal renderer contract requires 30fps, contiguous scene coverage, safe relative image/audio paths,
+non-overlapping subtitles inside their owning scenes, bounded duration and known dimensions. Remotion
+adds deterministic low-interference pan/zoom to each background, renders emphasis text independently,
+and produces H.264/AAC MP4 plus a still cover. Output is staged and published only after successful media
+generation.
+
+Motion V1 deliberately does not infer cue timing, perform speech recognition, accept MP4 background loops,
+provide word-level karaoke, expose an arbitrary animation DSL, or emit a native Jianying project. Those
+capabilities require separate contracts and verification rather than weakening the current timing boundary.
 
 ## Failure and compatibility
 

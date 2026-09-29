@@ -6,7 +6,8 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "node --test test/*.test.mjs",
-    "render": "node render.mjs"
+    "render": "node render.mjs",
+    "render:motion": "node motion-render.mjs"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.421",

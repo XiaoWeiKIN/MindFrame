@@ -9,7 +9,7 @@ use mindframe_core::{Storyboard, Timeline, materials::{Assets, Project}};
 use pipeline::Config;
 
 #[derive(Parser)]
-#[command(name = "mindframe", version, about = "把聊天创作的口播和图片整理成剪辑素材包")]
+#[command(name = "mindframe", version, about = "把聊天创作的知识内容整理成剪辑素材，并可渲染轻量知识讲解视频")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -49,6 +49,17 @@ enum Command {
         #[arg(long, value_parser = ["jianying"], default_value = "jianying")]
         target: String,
         #[arg(long)] out: PathBuf,
+    },
+    /// Render a chat-material project as a lightweight knowledge lecture. Requires real WAV + reviewed cues.
+    Motion {
+        project: PathBuf,
+        #[arg(long)] out: PathBuf,
+        #[arg(long, value_parser = ["douyin", "bilibili"], default_value = "douyin")]
+        preset: String,
+        #[arg(long, default_value = "renderer/remotion")]
+        renderer: PathBuf,
+        #[arg(long, default_value_t = 1.0)]
+        scale: f64,
     },
     /// Validate chat materials or a legacy storyboard project, without model calls.
     Validate { project: PathBuf },
@@ -90,6 +101,10 @@ fn main() -> Result<()> {
         Command::Init { input, out, preset } => materials::init(&input, &out, preset)?,
         Command::Import { project, from } => materials::import(&project, &from)?,
         Command::Export { project, target: _, out } => materials::export(&project, &out)?,
+        Command::Motion { project, out, preset, renderer, scale } => {
+            ensure!(scale.is_finite() && (0.1..=1.0).contains(&scale), "scale must be in 0.1..=1.0");
+            materials::motion(&project, &out, &preset, &renderer, scale)?;
+        }
         Command::Validate { project } => {
             if project.join("project.json").symlink_metadata().is_ok() {
                 materials::validate(&project)?;

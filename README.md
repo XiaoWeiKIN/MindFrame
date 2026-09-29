@@ -144,6 +144,21 @@ cues 必须按分镜/句子顺序覆盖全部口播且不重叠；时间不能�
 再次导入整批素材应创建新项目；局部修订可直接编辑现有 content/ 后重新校验和导出。
 ZIP 自动解包、整库扫描、网页抓取、自动配音和原生剪映工程都不属于这条主流程。
 
+## Motion：从已对齐素材直接生成知识讲解 MP4
+
+聊天素材项目如果已经有**实际 WAV 录音**和覆盖全部口播的**已核对逐句 cues**，可以直接生成轻量知识讲解视频：
+
+```bash
+mindframe motion projects/article \
+  --out dist/article-motion \
+  --preset douyin \
+  --renderer renderer/remotion
+```
+
+Motion V1 使用每个 scene 的真实图片作为背景，自动做低干扰的缓慢缩放/漂移；`screen_text` 作为独立重点层，逐句字幕严格使用已提供 cue 时间，整条旁白使用实际导入的 `audio/narration.wav`。没有录音或完整时间点会直接失败，不按字数猜时长。
+
+输出包含 `motion.mp4`、`cover.png`、`motion-input.json` 与 `subtitles.srt`。当前支持静态背景产生轻运动，不导入外部 MP4 背景，不做词级高亮，也不是剪映原生工程。公式如需精确数学排版，应在 `screen_text`/后期排版中提供准确文本并人工检查；Motion V1 不解释 LaTeX。
+
 ## 可选的旧 API / Remotion 路线
 
 之前的 `plan / build / produce / render / demo` 仍保留，用于旧的根目录
