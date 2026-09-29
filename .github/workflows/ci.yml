@@ -1,0 +1,70 @@
+name: MindFrame V1
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  chat-materials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Rust contract and local-material checks
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          cargo build --workspace
+      - name: Chat material CLI smoke test (no API keys, no media subprocesses)
+        run: python3 scripts/chat_smoke.py --out output/chat-smoke
+      - name: Save inspectable material fixture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindframe-chat-materials
+          path: output/chat-smoke/
+          retention-days: 7
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install media dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak fonts-noto-cjk
+          npm --prefix renderer/remotion install
+      - name: Rust and renderer checks
+        run: python3 scripts/check.py
+      - name: Build CLI and export contracts
+        run: |
+          cargo build --workspace
+          cargo run -p mindframe-cli -- schema --out output/schemas
+      - name: Real render with loopback provider fixtures (no paid API)
+        run: python3 scripts/integration_test.py --out output/integration
+      - name: Inspect actual media encoding without weakening acceptance
+        if: always()
+        run: |
+          if [ -d output/integration ]; then
+            find output/integration -name '*.mp4' -print -exec ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,pix_fmt,color_range,width,height -of json {} \;
+          fi
+      - name: Save inspectable test media and dependency resolution
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindframe-v1-verification
+          path: |
+            output/
+            Cargo.lock
+            renderer/remotion/package-lock.json
+          retention-days: 7

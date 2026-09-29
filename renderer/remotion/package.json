@@ -1,0 +1,24 @@
+{
+  "name": "@mindframe/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.421",
+    "@remotion/renderer": "4.0.421",
+    "remotion": "4.0.421",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "mermaid": "^11.4.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "typescript": "^5.7.3"
+  }
+}

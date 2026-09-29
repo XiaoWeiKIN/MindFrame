@@ -1,0 +1,27 @@
+# Copy to mindframe.toml. Credentials are read only from environment variables.
+# API planning sends the selected source.md to this endpoint; it never scans your vault.
+[llm]
+base_url = "https://api.openai.com/v1"
+model = "gpt-4.1-mini"
+api_key_env = "OPENAI_API_KEY"
+
+[tts]
+provider = "api"
+voice = "coral"
+[tts.api]
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini-tts"
+api_key_env = "OPENAI_API_KEY"
+
+# Optional. Remove this section to plan only cards, diagrams, quotations and code.
+# Implements the GPT Image PNG/base64 response contract, not arbitrary image APIs.
+[image]
+base_url = "https://api.openai.com/v1"
+model = "gpt-image-1"
+api_key_env = "OPENAI_API_KEY"
+
+# Local voice alternative: replace [tts] and [tts.api] above with:
+# [tts]
+# provider = "espeak"
+# voice = "zh"
+# eSpeak is a development/offline option, not a natural-voice quality substitute.
