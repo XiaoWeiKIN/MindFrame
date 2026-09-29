@@ -64,6 +64,29 @@ Motion V1 deliberately does not infer cue timing, perform speech recognition, ac
 provide word-level karaoke, expose an arbitrary animation DSL, or emit a native Jianying project. Those
 capabilities require separate contracts and verification rather than weakening the current timing boundary.
 
+## Motion Primitives boundary
+
+An optional `content/motion.json` adds sentence-paced visual states without changing Storyboard or Assets.
+Core owns the strict `MotionPlan` contract. A scene plan contains ordered steps bound to zero-based
+`narration` indices; frame timing is derived only from the matching reviewed cue. Each step is a complete
+state snapshot, not an executable action script.
+
+The supported visual vocabulary is deliberately small: text, stat, relation, matrix and formula. Placement is
+limited to top/left/center/right/bottom slots. Reusing an element id preserves semantic identity across steps;
+changed values are rendered as replacements, new ids enter, omitted ids exit, and emphasis marks the current
+focus. The renderer keeps unchanged elements visually stable across step boundaries so a sentence can add one
+piece of information without flashing the whole composition.
+
+Rust rejects unknown fields, invalid scene/utterance references, duplicate ids, relations whose endpoints are
+not present in the same state, malformed small matrices and formula highlights that are not literal substrings
+of the displayed formula. The renderer repeats these safety/shape checks at its external JSON boundary and
+requires every timed step to have a matching subtitle cue. No JavaScript, CSS, React source, pixel coordinates
+or arbitrary animation commands are accepted from authored content.
+
+Projects without `motion.json` retain the simpler Motion V1 `screen_text` path. Import/validate/export preserve
+the optional plan; `init` embeds its generated schema. This compatibility is intentional: richer explainers do
+not complicate the minimum static-material workflow.
+
 ## Failure and compatibility
 
 Boundary checks reject unsupported formats, bad references, missing/corrupt media, traversal and
