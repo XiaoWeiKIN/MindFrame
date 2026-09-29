@@ -42,14 +42,17 @@ network call, FFmpeg, Node or editor installation. The original API/media pipeli
 
 - Primary init/import/validate/export implementation is tested at c04cb33b3f8782cf5dd2a488ae084cbdc102dcdc.
 - Actions run36569380103, job109409249398 chat-materials: completed success at 2026-09-29T12:42:45Z.
-- Clippy, all 20 Rust tests, Cargo build and the actual no-key/PATH-empty CLI smoke test passed.
-- The inspectable synthetic material pack was uploaded as artifact11033741157.
-- Follow-up 37d1155 changes only ignore rules and CI media diagnostics; application code is unchanged.
-- Evidence: [chat-materials verification](../../../verification/chat-materials-2026-09-29.md).
-- Historical e3bfca7 failed optional-media acceptance at H.264/yuv420p. The new optional verify job
-  had reached real rendering after its static/build steps passed; full-media acceptance is not yet claimed.
-- Next action: inspect optional verify logs and ffprobe diagnostics without weakening acceptance;
-  separately perform user-version Jianying manual import acceptance when an editor environment is available.
+- Clippy, all 20 Rust tests, Cargo build and actual no-key/PATH-empty CLI smoke passed.
+- Actual fixture pack uploaded as artifact11033741157; source is synthetic PNG/silent WAV, not GPT art.
+- Follow-ups 37d1155 and 6023257 changed ignore rules, CI diagnostics and evidence only.
+- The optional verify job109409249723 subsequently failed. Downloaded artifact11033467585 and
+  checked both MP4s locally: H.264/AAC, 30fps, but pixel format yuvj420p and full range pc.
+- Correction dfea5df7f7dd0bafc65e9e89229bee1e42f9fe5c selects PNG capture and explicit BT.709 in
+  the optional renderMedia call. Its full-media acceptance is not yet claimed. Rust primary code is unchanged.
+- Evidence: [primary verification](../../../verification/chat-materials-2026-09-29.md) and
+  [media diagnosis and correction](../../../verification/legacy-media-diagnostic-2026-09-29.md).
+- Next action: inspect the dfea5df correction's actual full-media CI, keeping the original codec and
+  full-decode assertions. User-version Jianying UI acceptance remains a separate environment-dependent check.
 
 ## Context and Orientation
 
@@ -57,7 +60,7 @@ network call, FFmpeg, Node or editor installation. The original API/media pipeli
 - crates/mindframe-core/src/materials.rs: Project, Assets, Cue, path/mapping/timing contracts.
 - crates/mindframe-cli/src/materials.rs: local init/import/validate/export I/O.
 - crates/mindframe-cli/src/main.rs: primary commands and explicit legacy-mode boundaries.
-- crates/mindframe-cli/src/pipeline.rs and renderer/remotion/: preserved optional API/media path.
+- crates/mindframe-cli/src/pipeline.rs and renderer/remotion/: optional API/media path.
 - prompts/chat-authoring.md and skills/mindframe-author/SKILL.md: portable authoring handoff.
 - scripts/chat_smoke.py: actual CLI acceptance with synthetic assets and no model credentials.
 
@@ -67,9 +70,10 @@ network call, FFmpeg, Node or editor installation. The original API/media pipeli
 |---|---|---|
 | docs/engineering/development-principles.md | Minimal sufficient complexity, fail fast, validation ownership | Before edits |
 | ARCHITECTURE.md | Local primary path versus optional API/media boundary | Before contract changes |
-| prompts/chat-authoring.md | Actual files, not guessed attachments or generated-image claims | When creating bundles |
+| prompts/chat-authoring.md | Actual files, not guessed attachments or model claims | When creating bundles |
 | README.md | Supported input, editing, export and non-goals | At handoff |
-| docs/verification/chat-materials-2026-09-29.md | Actual tested revision and CI evidence | Before interpreting completion |
+| docs/verification/chat-materials-2026-09-29.md | Exact tested revision and primary CI evidence | Before interpreting completion |
+| docs/verification/legacy-media-diagnostic-2026-09-29.md | Real ffprobe result and bounded correction | Before optional renderer work |
 
 Source is one explicit UTF-8 Markdown snapshot, not a vault scan. Narration has one editing authority
 in Storyboard. Images are actual PNG/JPEG/WebP bytes. No arbitrary code execution, session-cookie
@@ -89,9 +93,9 @@ template fallback remains explicit. No formal lifecycle seal or archive has been
 |---|---|---|
 | Two Rust crates | Core owns contracts; CLI owns I/O | Clippy/build passed in job109409249398 |
 | Content reviewed in chat | Authoring handoff and local bundle import | No-key CLI tests and smoke passed |
-| Source grounding | Reuse existing Storyboard validation | Invalid quote tests passed |
+| Source grounding | Reuse Storyboard validation | Invalid quote tests passed |
 | Editor handoff | Standard media, CSV, Markdown and optional SRT only | Export assertions passed; editor UI not tested |
-| Preserve old path | Existing pipeline/renderer and original media gate remain | Full-media CI still separately tracked |
+| Preserve old path | Optional pipeline/renderer and original media gate remain | Failed pixel-format acceptance diagnosed; correction pending |
 
 ## Benchmark Gate Set
 
@@ -100,21 +104,21 @@ or model-quality result is claimed.
 
 ## Plan of Work
 
-The local-material implementation and tests are published on feat/v1-knowledge-to-video. Keep PR #1
-as draft while the separate optional-media acceptance is resolved. Update this live plan with observed
-results. Primary functional success does not authorize a fabricated governance seal or automatic merge.
+The primary implementation is published and tested on feat/v1-knowledge-to-video. Keep PR #1 draft
+while optional-media correction acceptance is evaluated. Update this live plan with observed results.
+Primary functional success does not authorize a fabricated governance seal or automatic merge.
 
 ## Milestones
 
-1. Chat handoff: init emits source snapshot, line-number aid and exact authoring schemas — verified.
-2. Material intake: import maps every scene to an actual image and handles optional audio — verified.
+1. Chat handoff: source snapshot, line-number aid and exact authoring schemas — verified.
+2. Material intake: explicit image mapping, original bytes and optional audio — verified.
 3. Editor export: untimed text and explicitly supplied WAV/cue timing paths — verified.
 4. Verification: actual CLI tests, no-key smoke and inspectable fixture artifacts — passed.
 5. Optional media/editor UI: separately outstanding; not inferred from material export tests.
 
 ## Concrete Steps
 
-From repository root:
+From repository root, use new output directories for each independent run:
 
 ```bash
 cargo clippy --workspace --all-targets -- -D warnings
@@ -127,22 +131,22 @@ python3 scripts/integration_test.py --out output/integration
 
 ## Validation and Acceptance
 
-Evidence for checked items: revision c04cb33, Actions run36569380103 / job109409249398,
+Evidence for checked items: c04cb33, Actions run36569380103 / job109409249398,
 full logs inspected and fixture artifact11033741157 retained.
 
 - [x] New revision compiles and passes Clippy and all 20 Rust tests.
 - [x] Actual CLI init/import/validate/export succeeds with no keys and empty PATH.
-- [x] PNG/JPEG/WebP inputs are decoded and their original bytes preserved.
+- [x] PNG/JPEG/WebP inputs are decoded and original bytes preserved.
 - [x] Untimed export has plain subtitles and empty CSV times, not invented SRT.
 - [x] WAV plus exact supplied cues yields SRT; stale text, overlap and audio overrun fail.
 - [x] Missing/bad files, traversal, symlinks and existing destinations fail without partial publication.
-- [x] Smoke artifact documents synthetic image/audio provenance and no editor UI acceptance.
-- [ ] Optional media path passes the unchanged H.264/yuv420p and full-decode gates.
+- [x] Smoke artifact documents synthetic provenance and no editor UI acceptance.
+- [ ] Corrected optional media passes unchanged H.264/yuv420p and full-decode gates.
 - [ ] Standard images/audio/optional SRT manually imported in the user's Jianying version.
 
 This plan remains active. verified_revision, verification_evidence and archive_sha256 stay unset
-until a formal controller-supported archival action with real completion evidence is appropriate.
-The ordinary verification record above preserves the primary tested revision without faking archival metadata.
+until a formal controller-supported archival action is appropriate. Ordinary verification notes
+preserve the actual tested revisions without faking archival metadata.
 
 ## Idempotence and Recovery
 
@@ -153,43 +157,46 @@ is cleaned on normal failure. Concurrent writes to the same project are unsuppor
 
 ## Progress
 
-- [x] Earlier e3bfca7 implemented source-to-video API and fixed-template rendering code.
-- [x] Its CI compiled and passed static checks; media acceptance failed, so no completion was recorded.
-- [x] Owner clarified that authoring and image generation happen in chat, with Jianying material output.
-- [x] Added local workflow implementation, contracts, tests and authoring guide.
-- [x] Inspected c04cb33 primary CI: Clippy, 20 tests, build and actual CLI smoke all passed.
-- [x] Recorded exact revision, job, fixture artifact and limitations in ordinary verification documentation.
-- [ ] Resolve separate optional-media acceptance and perform editor UI acceptance.
+- [x] Earlier e3bfca7 implemented API/media code; its compiler/static checks passed but media acceptance failed.
+- [x] Owner clarified chat authoring/image generation and Jianying material output.
+- [x] Added local workflow, contracts, tests and authoring guide at c04cb33.
+- [x] Inspected actual primary CI: Clippy, 20 tests, build and CLI smoke all passed.
+- [x] Recorded exact revision, job, artifact and limitations in ordinary verification documentation.
+- [x] Inspected the optional failure's actual MP4 files: full-range yuvj420p; kept original assertions.
+- [x] Submitted bounded PNG/BT.709 correction at dfea5df; no extra fallback transcode.
+- [ ] Verify that correction end to end and perform editor UI acceptance.
 
 ## Surprises & Discoveries
 
-The earlier claim that GitHub write permission was missing was incorrect. The connector reports
-repository write permissions. Local shell network/toolchain limitations are not GitHub authorization failures.
-Actual Actions execution resolved the primary compiler/test evidence gap; it did not install Rust locally.
+Local shell network/toolchain limitations are not GitHub permission failures. Actual Actions execution
+resolved the primary compiler/test evidence gap without installing Rust locally.
+The old renderer already specified yuv420p but produced full-range yuvj420p; checking actual files
+was necessary. Do not repeat the old option as a supposed fix or delete the assertion to obtain green CI.
 
 ## Decision Log
 
-- 2026-09-29: Preserve Storyboard v1 instead of adding independent script/import-script authority.
-- 2026-09-29: Images map by scene ID; no filename-order guessing or native editor-draft generation.
-- 2026-09-29: Omit SRT when recording/timing data is absent. User-supplied timing is not ASR verification.
-- 2026-09-29: Keep legacy API/media commands explicit and separate; no silent paid fallback.
+- 2026-09-29: Preserve Storyboard v1 instead of introducing an independent script editing authority.
+- 2026-09-29: Map images explicitly by scene ID; no filename guessing or native editor-draft generation.
+- 2026-09-29: Omit SRT without recording/timings; supplied cues are not ASR verification.
+- 2026-09-29: Keep legacy API/media commands separate, with no silent paid fallback.
+- 2026-09-29: Correct observed optional-media color conversion with documented renderer options, not weaker tests.
 
 ## Blockers
 
 | ID | Status | Opened | Resolved | Missing capability | Impact | Unblock or resolution |
 |---|---|---|---|---|---|---|
-| ENV-1 | resolved | 2026-09-29 | 2026-09-29 | Local Rust and package network | Local execution still unavailable | Actual Actions compiler/tests passed; primary verification no longer blocked |
-| MEDIA-1 | open | 2026-09-29 | | Verified legacy MP4 encoding | Historical optional media acceptance failed | New real-render run in progress; inspect ffprobe output, keep assertion |
-| EDITOR-1 | open | 2026-09-29 | | User's Jianying UI/version | No editor UI acceptance | Manual import verification; do not claim native draft compatibility |
+| ENV-1 | resolved | 2026-09-29 | 2026-09-29 | Local Rust/network | Local execution unavailable | Actual Actions compiler/tests passed; primary evidence no longer blocked |
+| MEDIA-1 | open | 2026-09-29 | | Correction acceptance | Historical and c04 optional media acceptance failed | Inspect dfea5df real render/ffprobe; retain strict gate |
+| EDITOR-1 | open | 2026-09-29 | | User's Jianying UI/version | No UI acceptance | Manual import verification; no native draft compatibility claim |
 
 Live API testing has not been performed and is not required by the new no-key primary workflow.
 
 ## Outcomes & Retrospective
 
 The chat-authored material path is implemented and passed actual Rust/CLI acceptance at c04cb33.
-The tests establish local file handling and export contracts, not model creativity, natural voice,
-philosophical/technical correctness or native-editor interoperability. The optional video path and
-editor UI remain separate unfinished acceptance work. This is not an archived completed plan.
+These tests establish local file/export behavior, not model creativity, natural speech, content correctness
+or native-editor interoperability. Optional video correction and editor UI acceptance remain unfinished.
+This is not an archived completed plan.
 
 ### Knowledge promotion candidates
 
@@ -197,19 +204,21 @@ Separate prose, recorded audio, supplied timestamps and verified speech alignmen
 
 ## Interfaces and Dependencies
 
-Rust serde/schemars contracts, existing Clap CLI, image crate with PNG/JPEG/WebP only, hound for
-PCM WAV inspection, tempfile for staged local publication. No new provider framework or cloud service.
+Rust serde/schemars, existing Clap CLI, image with PNG/JPEG/WebP only, hound for PCM WAV inspection,
+tempfile for staged publication. No new provider framework or cloud service. The optional renderer
+uses the existing Remotion options; primary commands do not launch it.
 
 ## Artifacts and Notes
 
-PR #1 retains implementation and verification history. Earlier Actions run:36556040924 / job109365306455.
-Primary passing evidence: run36569380103 / job109409249398 / artifact11033741157.
-Artifact SHA-256: fac2ccc82604c341908fd9276f3490a37cb2579dfd6804b98da49b41520e1b17.
-Synthetic fixtures are never described as GPT-generated images. See the ordinary verification record
-for test breakdown, exact execution environment, retention and limits.
+- PR #1 retains implementation and verification history.
+- Primary pass: run36569380103 / job109409249398 / artifact11033741157.
+- Primary artifact SHA-256: fac2ccc82604c341908fd9276f3490a37cb2579dfd6804b98da49b41520e1b17.
+- Failed optional media: same run / job109409249723 / artifact11033467585.
+- Media artifact SHA-256: da9c3f4cb3d3dc49ab1f22d403d1664805a566eace7dea30590bae4e4af1efbf.
+- Synthetic fixture art/audio is never described as GPT generation or natural narration.
 
 ## Revision Notes
 
-- 2026-09-29: Original V1 API/media work recorded using the controller-unavailable template fallback.
-- 2026-09-29: Scope explicitly changed to chat-first materials at the owner's request; prior media failure retained.
-- 2026-09-29: Recorded successful primary CI and actual CLI smoke evidence; kept optional/UI gates open.
+- 2026-09-29: Original V1 API/media work recorded with the controller-unavailable template fallback.
+- 2026-09-29: Owner changed scope to chat-first materials; prior media failure retained.
+- 2026-09-29: Recorded passing primary CI, diagnosed full-range media, and submitted bounded correction.
