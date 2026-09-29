@@ -19,16 +19,22 @@ Base: main at 0df0319770adafb5b2c7f0b628ae6f93a0ae94d4 (PR #1 already merged). W
 
 No original vault notes or generated user media are added to the repository. Upstream prose/code is not vendored; source notes distinguish ideas consulted from dependencies and document the observed licenses.
 
-## Acceptance declared before CI
+## Acceptance declared before CI — observed results
 
-- [ ] Current revision passes Clippy and all Rust tests, including four visual_director tests.
-- [ ] An installed/compiled CLI initializes outside the repository with empty PATH and no keys, embedding full canonical text and unchanged source.
-- [ ] Examples validate against existing Storyboard/Assets types; unsupported added metadata is rejected.
-- [ ] Synthetic three-page material import/export preserves actual image bytes and excludes source/working notes; no audio means no SRT.
-- [ ] Existing chat-material smoke, TypeScript checks, and optional real-media gates remain passing.
-- [x] Local preparation inspected Markdown reference targets and literal example source references; this is not Rust or image execution evidence.
+- [x] Implementation f0f9f7c passes Clippy and all 24 Rust tests, including four visual_director tests, through PR test merge df94112.
+- [x] Actual compiled CLI initializes outside the repository with empty PATH and no keys, embedding full canonical text and unchanged source.
+- [x] Examples validate against existing Storyboard/Assets types; unsupported added metadata is rejected.
+- [x] Synthetic three-page material import/export preserves actual image bytes and excludes source/working notes; no audio means no SRT.
+- [x] Existing chat-material smoke, TypeScript checks, 12 Node tests and optional real-media gates passed in run36575979698.
+- [x] Local preparation inspected Markdown reference targets and literal example source references; this is separate from Rust and image execution evidence.
 
-Next action: commit the bounded changes, open a reviewable PR and inspect actual Actions outcomes; repair failures without weakening the existing gates. Record exact revision/run IDs in the PR.
+## Current handoff
+
+Implementation: f0f9f7c84e5e3f90f7be3bc34996828f536309bc; PR #3. Actual CI run36575979698 has both jobs completed successfully. Full verify-job logs and primary smoke-step results were inspected. The exact merge revision, commands, results, artifacts and limits are in [the verification record](../../../verification/visual-director-2026-09-29.md).
+
+The scoped implementation and functional verification are complete; PR review/merge and a real article's image-generation/visual review are separate actions. Main is unchanged by this work. Parent EP-001 remains active; this does not fabricate a formal completed-plan seal.
+
+A pre-existing optional-renderer dependency warning remains: npm install reported 5 high-severity findings. Detailed audit/remediation was not run and no security-audit pass is claimed.
 
 ## Compatibility and review limits
 
