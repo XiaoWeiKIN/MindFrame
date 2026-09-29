@@ -5,7 +5,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Result, ensure};
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use mindframe_core::{Storyboard, Timeline, materials::{Assets, Project}};
+use mindframe_core::{Storyboard, Timeline, materials::{Assets, MotionPlan, Project}};
 use pipeline::Config;
 
 #[derive(Parser)]
@@ -119,6 +119,7 @@ fn main() -> Result<()> {
             pipeline::write_json(&out.join("timeline.schema.json"), &schemars::schema_for!(Timeline))?;
             pipeline::write_json(&out.join("project.schema.json"), &schemars::schema_for!(Project))?;
             pipeline::write_json(&out.join("assets.schema.json"), &schemars::schema_for!(Assets))?;
+            pipeline::write_json(&out.join("motion.schema.json"), &schemars::schema_for!(MotionPlan))?;
         }
         Command::Plan { input, out, config } => {
             let source = pipeline::read_source(&input)?;

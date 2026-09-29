@@ -36,6 +36,7 @@ PDF/Word 可以先在聊天中整理成一份忠实的 Markdown 快照；CLI 本
 chat-output/
 ├── storyboard.json
 ├── assets.json
+├── motion.json          # 可选：逐句 Motion Primitives
 └── images/
     ├── scene-01.png
     └── scene-02.webp
@@ -158,6 +159,16 @@ mindframe motion projects/article \
 Motion V1 使用每个 scene 的真实图片作为背景，自动做低干扰的缓慢缩放/漂移；`screen_text` 作为独立重点层，逐句字幕严格使用已提供 cue 时间，整条旁白使用实际导入的 `audio/narration.wav`。没有录音或完整时间点会直接失败，不按字数猜时长。
 
 输出包含 `motion.mp4`、`cover.png`、`motion-input.json` 与 `subtitles.srt`。当前支持静态背景产生轻运动，不导入外部 MP4 背景，不做词级高亮，也不是剪映原生工程。公式如需精确数学排版，应在 `screen_text`/后期排版中提供准确文本并人工检查；Motion V1 不解释 LaTeX。
+
+可选的 `motion.json` 用于逐句动态图解。它不是任意动画 DSL，而是随 narration 句子切换的完整视觉状态快照。固定原语：
+
+- `text`：核心论点/结果；
+- `stat`：人物、时间、数字或收益；
+- `relation`：两个元素之间的简单关系；
+- `matrix`：小型收益矩阵/决策表；
+- `formula`：公式显示字符串和一个可选高亮子串。
+
+同 id 在下一步继续出现表示同一个对象；值改变表现为替换，新增 id 淡入，`emphasis` 提示重点。布局只使用 top/left/center/right/bottom 五个 slot，不接受 JavaScript、CSS、任意坐标或任意动画命令。没有 `motion.json` 的旧项目继续使用 screen_text 简单重点层。
 
 ## 可选的旧 API / Remotion 路线
 

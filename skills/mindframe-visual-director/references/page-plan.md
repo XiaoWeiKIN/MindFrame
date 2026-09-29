@@ -85,3 +85,18 @@
 - storyboard/assets是否仍使用现有Schema：
 - 单独交接的visual-plan/review/动态文件：CLI不自动复制
 - 文件检查、实图审核、实播验收：分别说明
+
+
+## 可选 motion.json（需要逐句动态图解时）
+
+- 本 scene 是否需要 primitives：是 / 否
+- 每个 step 必须对应 storyboard narration 的 utterance_index；第一步 0，后续递增
+- 每步写完整状态，不写 appear/replace 等命令：
+  - text：id / text / slot / emphasis
+  - stat：id / label / value / slot / emphasis
+  - relation：id / from / to / label / slot
+  - matrix：id / title / headers / rows / slot
+  - formula：id / 准确公式显示字符串 / highlight / note / slot
+- 同 id 跨 step 保持语义身份；值变化由 renderer 解释为替换
+- 不写 JavaScript、CSS、像素坐标、任意动画名；没有 Schema 不猜字段
+- 无实际 WAV/cues 时只完成 motion 方案，不声称已同步渲染

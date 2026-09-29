@@ -15,6 +15,24 @@
 只要求方案或沉淀Skill时不生图。需要底图/插图时使用宿主真实图像工具，不以提示词替代图片。
 用户指定图像型号时仅在工具明确支持选择时承诺；未暴露型号记未知，不加虚构参数或调用收费替代服务。
 
+
+## 可选 Motion Primitives
+
+需要“每句话出现一个新信息”的知识讲解视频时，可额外交付 `motion.json`，严格遵守附后的 Motion Schema。
+它不是任意动画脚本：每个 step 是某个 narration 句子开始时的**完整画面状态**，第一步必须是
+`utterance_index: 0`。固定原语只有：
+
+- `text`：核心命题/结果；
+- `stat`：人物、时间、数值或收益；同 id 改 value 表示 replace；
+- `relation`：同一步两个非 relation 元素之间的关系箭头；
+- `matrix`：2–4 列、1–4 行的小型收益/决策矩阵；
+- `formula`：准确显示公式字符串，可高亮其中一个逐字子串。
+
+新增 id 会自然出现；同 id 内容变化表示替换；`emphasis: true` 表示本步重点。不要写 JavaScript、
+CSS、任意坐标、任意动画代码或未支持的 action 名。没有 `motion.json` 时仍使用 screen_text 的
+简单重点层。Motion step 只决定视觉状态，真正起始帧仍由已核对的 narration cues 决定，不能因此
+省略实际录音/时间点。
+
 ## 交付契约
 
 storyboard.json 是唯一的内容编辑源，严格遵守附后的 Schema，schema_version为1。

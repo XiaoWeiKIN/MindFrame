@@ -14,8 +14,9 @@ import zlib
 ROOT = Path(__file__).resolve().parents[1]
 
 SOURCE = """# Motion fixture
-Path dependence means history influences later choices without fixing one future.
-Reflexivity means a belief can affect behavior, feedback, and the next belief.
+A small workplace game can change when one coworker stays later.
+A payoff matrix is a compact way to compare strategic outcomes.
+State transitions depend on action, environment, and disturbance.
 """
 
 
@@ -100,36 +101,97 @@ def main() -> None:
     bundle.mkdir()
     background = bundle / 'background.png'
     background.write_bytes(png_fixture())
-    texts = ['History influences later choices without fixing one future.', 'Beliefs can affect behavior, feedback, and the next belief.']
+    texts = [
+        'Suppose you and Xiao Wang both leave at six.',
+        'One day Xiao Wang starts leaving at seven.',
+        'The boss now gives Xiao Wang a relative advantage.',
+        'Then you also leave at seven, so the relative advantage disappears.',
+        'A payoff matrix compares what each strategy combination returns.',
+        'A state transition depends on action, environment, and disturbance.',
+    ]
     cue_ranges, duration_ms = make_voice(bundle / 'voice.wav', texts)
 
     board = {
         'schema_version': 1,
-        'title': 'Motion fixture',
-        'summary': 'Two grounded concepts rendered over one reusable background.',
+        'title': 'Motion primitives fixture',
+        'summary': 'Synthetic strategic example rendered with fixed motion primitives.',
         'key_points': [
-            {'text': 'Path dependence', 'sources': [{'line_start': 2, 'line_end': 2, 'quote': 'Path dependence means history influences later choices without fixing one future.'}]},
-            {'text': 'Reflexivity', 'sources': [{'line_start': 3, 'line_end': 3, 'quote': 'Reflexivity means a belief can affect behavior, feedback, and the next belief.'}]},
+            {'text': 'Workplace game', 'sources': [{'line_start': 2, 'line_end': 2, 'quote': 'A small workplace game can change when one coworker stays later.'}]},
+            {'text': 'Payoff matrix', 'sources': [{'line_start': 3, 'line_end': 3, 'quote': 'A payoff matrix is a compact way to compare strategic outcomes.'}]},
+            {'text': 'State transition', 'sources': [{'line_start': 4, 'line_end': 4, 'quote': 'State transitions depend on action, environment, and disturbance.'}]},
         ],
         'scenes': [
-            {'id': 'path', 'narration': [texts[0]], 'point_refs': [1], 'visual': {'type': 'key_point', 'title': '路径依赖', 'body': 'History influences later choices.'}, 'transition': 'fade'},
-            {'id': 'reflexivity', 'narration': [texts[1]], 'point_refs': [2], 'visual': {'type': 'key_point', 'title': '反身性', 'body': 'Belief, behavior and feedback form a loop.'}, 'transition': 'fade'},
+            {'id': 'game', 'narration': texts[:4], 'point_refs': [1], 'visual': {'type': 'key_point', 'title': '相对优势', 'body': 'A synthetic workplace game.'}, 'transition': 'fade'},
+            {'id': 'matrix', 'narration': [texts[4]], 'point_refs': [2], 'visual': {'type': 'key_point', 'title': '收益矩阵', 'body': 'Compare strategy combinations.'}, 'transition': 'fade'},
+            {'id': 'formula', 'narration': [texts[5]], 'point_refs': [3], 'visual': {'type': 'key_point', 'title': '状态转移', 'body': 'Action is only one input.'}, 'transition': 'fade'},
         ],
     }
     assets = {
         'schema_version': 1,
         'images': [
-            {'scene_id': 'path', 'file': 'background.png', 'screen_text': '路径依赖\nPath Dependence'},
-            {'scene_id': 'reflexivity', 'file': 'background.png', 'screen_text': '反身性\nReflexivity'},
+            {'scene_id': 'game', 'file': 'background.png', 'screen_text': ''},
+            {'scene_id': 'matrix', 'file': 'background.png', 'screen_text': ''},
+            {'scene_id': 'formula', 'file': 'background.png', 'screen_text': ''},
         ],
         'audio': 'voice.wav',
         'cues': [
-            {'scene_id': 'path', 'utterance_index': 0, 'text': texts[0], 'start_ms': cue_ranges[0][0], 'end_ms': cue_ranges[0][1]},
-            {'scene_id': 'reflexivity', 'utterance_index': 0, 'text': texts[1], 'start_ms': cue_ranges[1][0], 'end_ms': cue_ranges[1][1]},
+            {'scene_id': 'game', 'utterance_index': 0, 'text': texts[0], 'start_ms': cue_ranges[0][0], 'end_ms': cue_ranges[0][1]},
+            {'scene_id': 'game', 'utterance_index': 1, 'text': texts[1], 'start_ms': cue_ranges[1][0], 'end_ms': cue_ranges[1][1]},
+            {'scene_id': 'game', 'utterance_index': 2, 'text': texts[2], 'start_ms': cue_ranges[2][0], 'end_ms': cue_ranges[2][1]},
+            {'scene_id': 'game', 'utterance_index': 3, 'text': texts[3], 'start_ms': cue_ranges[3][0], 'end_ms': cue_ranges[3][1]},
+            {'scene_id': 'matrix', 'utterance_index': 0, 'text': texts[4], 'start_ms': cue_ranges[4][0], 'end_ms': cue_ranges[4][1]},
+            {'scene_id': 'formula', 'utterance_index': 0, 'text': texts[5], 'start_ms': cue_ranges[5][0], 'end_ms': cue_ranges[5][1]},
+        ],
+    }
+    motion = {
+        'schema_version': 1,
+        'scenes': [
+            {
+                'scene_id': 'game',
+                'steps': [
+                    {'utterance_index': 0, 'elements': [
+                        {'type': 'text', 'id': 'setup', 'text': '假设公司只有你和小王', 'slot': 'top', 'emphasis': False},
+                        {'type': 'stat', 'id': 'you', 'label': '你', 'value': '18:00', 'slot': 'left', 'emphasis': False},
+                        {'type': 'stat', 'id': 'wang', 'label': '小王', 'value': '18:00', 'slot': 'right', 'emphasis': False},
+                    ]},
+                    {'utterance_index': 1, 'elements': [
+                        {'type': 'stat', 'id': 'you', 'label': '你', 'value': '18:00', 'slot': 'left', 'emphasis': False},
+                        {'type': 'stat', 'id': 'wang', 'label': '小王', 'value': '19:00 ↑', 'slot': 'right', 'emphasis': True},
+                    ]},
+                    {'utterance_index': 2, 'elements': [
+                        {'type': 'stat', 'id': 'you', 'label': '你', 'value': '18:00', 'slot': 'left', 'emphasis': False},
+                        {'type': 'stat', 'id': 'wang', 'label': '小王', 'value': '19:00', 'slot': 'right', 'emphasis': True},
+                        {'type': 'stat', 'id': 'boss', 'label': '老板评价', 'value': '小王 +1', 'slot': 'top', 'emphasis': True},
+                        {'type': 'relation', 'id': 'boss-edge', 'from': 'boss', 'to': 'wang', 'label': '更努力', 'slot': 'center'},
+                    ]},
+                    {'utterance_index': 3, 'elements': [
+                        {'type': 'stat', 'id': 'you', 'label': '你', 'value': '19:00', 'slot': 'left', 'emphasis': False},
+                        {'type': 'stat', 'id': 'wang', 'label': '小王', 'value': '19:00', 'slot': 'right', 'emphasis': False},
+                        {'type': 'text', 'id': 'result', 'text': '两个人都多上班 1 小时\n相对优势重新归零', 'slot': 'center', 'emphasis': True},
+                    ]},
+                ],
+            },
+            {
+                'scene_id': 'matrix',
+                'steps': [
+                    {'utterance_index': 0, 'elements': [
+                        {'type': 'matrix', 'id': 'payoff', 'title': '收益矩阵', 'headers': ['合作', '背叛'], 'rows': [['3,3', '0,5'], ['5,0', '1,1']], 'slot': 'center'},
+                    ]},
+                ],
+            },
+            {
+                'scene_id': 'formula',
+                'steps': [
+                    {'utterance_index': 0, 'elements': [
+                        {'type': 'formula', 'id': 'state', 'text': 'Sₜ₊₁ = F(Sₜ, Aₜ, Eₜ, εₜ)', 'highlight': 'Aₜ', 'note': '行动只是输入之一', 'slot': 'center'},
+                    ]},
+                ],
+            },
         ],
     }
     (bundle / 'storyboard.json').write_text(json.dumps(board, ensure_ascii=False, indent=2))
     (bundle / 'assets.json').write_text(json.dumps(assets, ensure_ascii=False, indent=2))
+    (bundle / 'motion.json').write_text(json.dumps(motion, ensure_ascii=False, indent=2))
     run(binary, 'import', project, '--from', bundle)
 
     expected = duration_ms / 1000
@@ -140,20 +202,25 @@ def main() -> None:
         assert (target / 'subtitles.srt').is_file()
         input_data = json.loads((target / 'motion-input.json').read_text())
         assert input_data['audio'] == 'audio/narration.wav'
-        assert [s['screen_text'] for s in input_data['scenes']] == ['路径依赖\nPath Dependence', '反身性\nReflexivity']
-        assert (target / 'assets/images/001-path.png').read_bytes() == background.read_bytes()
-        assert (target / 'assets/images/002-reflexivity.png').read_bytes() == background.read_bytes()
+        assert len(input_data['scenes'][0]['steps']) == 4
+        assert input_data['scenes'][0]['steps'][1]['elements'][1]['value'] == '19:00 ↑'
+        assert input_data['scenes'][1]['steps'][0]['elements'][0]['type'] == 'matrix'
+        assert input_data['scenes'][2]['steps'][0]['elements'][0]['type'] == 'formula'
+        assert (target / 'motion.json').is_file()
+        assert (target / 'assets/images/001-game.png').read_bytes() == background.read_bytes()
+        assert (target / 'assets/images/002-matrix.png').read_bytes() == background.read_bytes()
+        assert (target / 'assets/images/003-formula.png').read_bytes() == background.read_bytes()
         check_video(target / 'motion.mp4', dims, expected)
         assert (target / 'cover.png').stat().st_size > 1000
         results[preset] = {'dimensions': dims, 'duration_seconds': expected, 'decode': 'passed'}
 
     (out / 'verification.json').write_text(json.dumps({
         'audio': 'local eSpeak fixture with exact concatenated utterance boundaries; not a natural-voice quality test',
-        'background': 'synthetic static PNG with renderer-created subtle motion',
+        'background': 'one synthetic static PNG reused across all scenes with renderer-created subtle motion',
         'presets': results,
         'alignment': 'sentence boundaries derived from separately rendered fixture utterances',
     }, indent=2))
-    print('Motion: real WAV, reviewed cue contract, reusable background, subtitles, both MP4 layouts and full decode passed.')
+    print('Motion primitives: text/stat/relation/matrix/formula snapshots, real WAV, reviewed cues, both MP4 layouts and full decode passed.')
 
 
 if __name__ == '__main__':

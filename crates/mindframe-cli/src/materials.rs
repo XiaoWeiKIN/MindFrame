@@ -3,7 +3,7 @@ use std::{fs, io::Cursor, path::{Path, PathBuf}, process::Command};
 
 use anyhow::{Context, Result, ensure};
 use image::{ImageFormat, ImageReader, Limits};
-use mindframe_core::{Scene, Storyboard, Visual, FPS, materials::{Assets, Project, csv_cell, timestamp}};
+use mindframe_core::{Scene, Storyboard, Visual, FPS, materials::{Assets, MotionPlan, MotionElement, Project, csv_cell, timestamp}};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
@@ -12,6 +12,7 @@ use crate::pipeline::{read_source, write_json};
 struct Bundle {
     board: Storyboard,
     assets: Assets,
+    motion: Option<MotionPlan>,
     files: Vec<(PathBuf, String)>,
     dimensions: Vec<Value>,
     audio_duration_ms: Option<u64>,
@@ -46,6 +47,15 @@ fn regular_file(root: &Path, relative: &str, max_bytes: u64) -> Result<PathBuf> 
 fn read_json<T: DeserializeOwned>(root: &Path, name: &str) -> Result<T> {
     let path = regular_file(root, name, 2 * 1024 * 1024)?;
     serde_json::from_slice(&fs::read(&path)?).with_context(|| format!("invalid JSON contract: {}", path.display()))
+}
+
+
+fn optional_json<T: DeserializeOwned>(root: &Path, name: &str) -> Result<Option<T>> {
+    match root.join(name).symlink_metadata() {
+        Ok(_) => read_json(root, name).map(Some),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error).with_context(|| format!("inspect optional material {name}")),
+    }
 }
 
 fn inspect_image(path: &Path) -> Result<(String, u32, u32)> {
@@ -88,6 +98,10 @@ fn load_bundle(root: &Path, source: &str) -> Result<Bundle> {
     board.validate(source)?;
     let mut assets: Assets = read_json(root, "assets.json")?;
     assets.validate(&board)?;
+    let motion: Option<MotionPlan> = optional_json(root, "motion.json")?;
+    if let Some(plan) = &motion {
+        plan.validate(&board)?;
+    }
     let mut files = Vec::new();
     let mut dimensions = Vec::new();
     // 1. 核对真实图片与场景映射；保留原图字节，不猜文件顺序、不拉伸或重生成。
@@ -116,7 +130,7 @@ fn load_bundle(root: &Path, source: &str) -> Result<Bundle> {
         files.push((path, audio.clone()));
         Some(duration)
     } else { None };
-    Ok(Bundle { board, assets, files, dimensions, audio_duration_ms })
+    Ok(Bundle { board, assets, motion, files, dimensions, audio_duration_ms })
 }
 
 fn load_project(project: &Path) -> Result<(Project, String)> {
@@ -134,6 +148,9 @@ fn copy_materials(bundle: &Bundle, out: &Path) -> Result<()> {
     }
     write_json(&out.join("storyboard.json"), &bundle.board)?;
     write_json(&out.join("assets.json"), &bundle.assets)?;
+    if let Some(motion) = &bundle.motion {
+        write_json(&out.join("motion.json"), motion)?;
+    }
     fs::write(out.join("script.md"), bundle.board.script_markdown())?;
     fs::write(out.join("key-points.md"), bundle.board.points_markdown())?;
     Ok(())
@@ -157,6 +174,59 @@ fn emphasis_text(scene: &Scene, screen_text: &str) -> String {
         Visual::KeyPoint { title, .. } => title.clone(),
         _ => String::new(),
     }
+}
+
+
+fn default_motion_elements(scene: &Scene, screen_text: &str) -> Vec<Value> {
+    let text = emphasis_text(scene, screen_text);
+    if text.trim().is_empty() {
+        Vec::new()
+    } else {
+        vec![json!({
+            "type": "text",
+            "id": "headline",
+            "text": text,
+            "slot": "center",
+            "emphasis": true
+        })]
+    }
+}
+
+fn motion_steps(bundle: &Bundle, scene: &Scene, scene_start: u32, scene_end: u32, screen_text: &str) -> Result<Vec<Value>> {
+    let Some(scene_plan) = bundle.motion.as_ref().and_then(|plan| plan.scenes.iter().find(|candidate| candidate.scene_id == scene.id)) else {
+        return Ok(vec![json!({
+            "utterance_index": 0,
+            "start_frame": scene_start,
+            "duration_frames": scene_end - scene_start,
+            "elements": default_motion_elements(scene, screen_text),
+        })]);
+    };
+
+    let mut starts = Vec::with_capacity(scene_plan.steps.len());
+    for step in &scene_plan.steps {
+        let start = if step.utterance_index == 0 {
+            scene_start
+        } else {
+            let cue = bundle.assets.cues.iter().find(|cue| cue.scene_id == scene.id && cue.utterance_index == step.utterance_index)
+                .expect("validated cues cover every motion step");
+            frame_at_or_after(cue.start_ms)?
+        };
+        starts.push(start);
+    }
+
+    let mut output = Vec::with_capacity(scene_plan.steps.len());
+    for (index, step) in scene_plan.steps.iter().enumerate() {
+        let start_frame = starts[index];
+        let end_frame = starts.get(index + 1).copied().unwrap_or(scene_end);
+        ensure!(end_frame > start_frame, "motion step for {} collapses below one frame; adjust cue timing", scene.id);
+        output.push(json!({
+            "utterance_index": step.utterance_index,
+            "start_frame": start_frame,
+            "duration_frames": end_frame - start_frame,
+            "elements": step.elements,
+        }));
+    }
+    Ok(output)
 }
 
 fn motion_input(bundle: &Bundle, preset: &str) -> Result<Value> {
@@ -187,12 +257,14 @@ fn motion_input(bundle: &Bundle, preset: &str) -> Result<Value> {
             duration_frames
         };
         ensure!(end_frame > start_frame, "scene {} collapses below one video frame; adjust cue timing", scene.id);
+        let steps = motion_steps(bundle, scene, start_frame, end_frame, &image.screen_text)?;
         scenes.push(json!({
             "id": scene.id,
             "start_frame": start_frame,
             "duration_frames": end_frame - start_frame,
             "image": image.file,
             "screen_text": emphasis_text(scene, &image.screen_text),
+            "steps": steps,
         }));
     }
 
@@ -251,6 +323,9 @@ pub fn motion(project: &Path, out: &Path, preset: &str, renderer: &Path, scale: 
             fs::copy(source, destination)?;
         }
         write_json(&dir.join("motion-input.json"), &input)?;
+        if let Some(motion) = &bundle.motion {
+            write_json(&dir.join("motion.json"), motion)?;
+        }
         if let Some(srt) = bundle.assets.subtitles() {
             fs::write(dir.join("subtitles.srt"), srt)?;
         }
@@ -288,12 +363,13 @@ pub fn init(input: &Path, out: &Path, preset: String) -> Result<()> {
         fs::write(dir.join("source.numbered.txt"), numbered)?;
         // Embed the canonical skill and worksheet so an installed CLI needs no repository files at runtime.
         let request = format!(
-            "{}\n\n目标布局：{}。\n\n## 视觉导演工作流（完整内嵌）\n{}\n\n## 逐页工作表（完整内嵌）\n{}\n\n## Storyboard JSON Schema\n```json\n{}\n```\n\n## Assets JSON Schema\n```json\n{}\n```\n",
+            "{}\n\n目标布局：{}。\n\n## 视觉导演工作流（完整内嵌）\n{}\n\n## 逐页工作表（完整内嵌）\n{}\n\n## Storyboard JSON Schema\n```json\n{}\n```\n\n## Assets JSON Schema\n```json\n{}\n```\n\n## Motion JSON Schema（可选）\n```json\n{}\n```\n",
             include_str!("../../../prompts/chat-authoring.md"), project.preset,
             include_str!("../../../skills/mindframe-visual-director/SKILL.md"),
             include_str!("../../../skills/mindframe-visual-director/references/page-plan.md"),
             serde_json::to_string_pretty(&schemars::schema_for!(Storyboard))?,
-            serde_json::to_string_pretty(&schemars::schema_for!(Assets))?
+            serde_json::to_string_pretty(&schemars::schema_for!(Assets))?,
+            serde_json::to_string_pretty(&schemars::schema_for!(MotionPlan))?
         );
         fs::write(dir.join("chat-request.md"), request)?;
         Ok(())
@@ -307,14 +383,14 @@ pub fn import(project: &Path, from: &Path) -> Result<()> {
     ensure!(!project.join("content").try_exists()?, "content already exists; edit its storyboard.json/assets.json directly, or import into a new project");
     let bundle = load_bundle(from, &source)?;
     publish(&project.join("content"), |dir| copy_materials(&bundle, dir))?;
-    println!("imported {} scene images; {}", bundle.board.scenes.len(), if bundle.assets.cues.is_empty() { "no supplied timing: subtitles remain untimed" } else { "recording bounds checked; listen to verify actual speech alignment" });
+    println!("imported {} scene images; motion_plan={}; {}", bundle.board.scenes.len(), bundle.motion.is_some(), if bundle.assets.cues.is_empty() { "no supplied timing: subtitles remain untimed" } else { "recording bounds checked; listen to verify actual speech alignment" });
     Ok(())
 }
 
 pub fn validate(project: &Path) -> Result<()> {
     let (_, source) = load_project(project)?;
     let bundle = load_bundle(&project.join("content"), &source)?;
-    println!("valid local materials: {} scenes, {} images; audio={} timing={}; factual accuracy and visual/speech alignment require human review", bundle.board.scenes.len(), bundle.dimensions.len(), bundle.audio_duration_ms.is_some(), !bundle.assets.cues.is_empty());
+    println!("valid local materials: {} scenes, {} images; motion_plan={} audio={} timing={}; factual accuracy and visual/speech alignment require human review", bundle.board.scenes.len(), bundle.dimensions.len(), bundle.motion.is_some(), bundle.audio_duration_ms.is_some(), !bundle.assets.cues.is_empty());
     Ok(())
 }
 

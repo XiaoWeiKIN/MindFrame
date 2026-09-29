@@ -60,6 +60,191 @@ pub struct Assets {
     pub cues: Vec<Cue>,
 }
 
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MotionPlan {
+    pub schema_version: u32,
+    pub scenes: Vec<MotionScenePlan>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MotionScenePlan {
+    pub scene_id: String,
+    /// Ordered full-state snapshots. The first step starts with narration[0].
+    pub steps: Vec<MotionStep>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MotionStep {
+    /// Zero-based narration index. The step begins at that reviewed cue.
+    pub utterance_index: usize,
+    /// Complete visual state for this step. Repeating an id updates/replaces that element.
+    #[serde(default)]
+    pub elements: Vec<MotionElement>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MotionSlot {
+    Top,
+    Left,
+    #[default]
+    Center,
+    Right,
+    Bottom,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MotionElement {
+    Text {
+        id: String,
+        text: String,
+        #[serde(default)]
+        slot: MotionSlot,
+        #[serde(default)]
+        emphasis: bool,
+    },
+    Stat {
+        id: String,
+        label: String,
+        value: String,
+        #[serde(default)]
+        slot: MotionSlot,
+        #[serde(default)]
+        emphasis: bool,
+    },
+    Relation {
+        id: String,
+        from: String,
+        to: String,
+        #[serde(default)]
+        label: Option<String>,
+        #[serde(default)]
+        slot: MotionSlot,
+    },
+    Matrix {
+        id: String,
+        title: String,
+        headers: Vec<String>,
+        rows: Vec<Vec<String>>,
+        #[serde(default)]
+        slot: MotionSlot,
+    },
+    Formula {
+        id: String,
+        text: String,
+        #[serde(default)]
+        highlight: Option<String>,
+        #[serde(default)]
+        note: Option<String>,
+        #[serde(default)]
+        slot: MotionSlot,
+    },
+}
+
+impl MotionElement {
+    fn id(&self) -> &str {
+        match self {
+            Self::Text { id, .. }
+            | Self::Stat { id, .. }
+            | Self::Relation { id, .. }
+            | Self::Matrix { id, .. }
+            | Self::Formula { id, .. } => id,
+        }
+    }
+
+    fn is_relation(&self) -> bool {
+        matches!(self, Self::Relation { .. })
+    }
+}
+
+fn motion_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
+        && value.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+}
+
+fn motion_text(value: &str, max_chars: usize, multiline: bool) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(|c| c.is_control() && !(multiline && c == '\n'))
+}
+
+impl MotionPlan {
+    pub fn validate(&self, board: &Storyboard) -> Result<()> {
+        ensure!(self.schema_version == 1, "unsupported motion schema_version");
+        ensure!(!self.scenes.is_empty() && self.scenes.len() <= board.scenes.len(), "motion plan must contain 1..storyboard scene count entries");
+        let mut scene_ids = HashSet::new();
+        for scene_plan in &self.scenes {
+            let scene = board.scenes.iter().find(|scene| scene.id == scene_plan.scene_id)
+                .ok_or_else(|| anyhow::anyhow!("motion plan references unknown scene: {}", scene_plan.scene_id))?;
+            ensure!(scene_ids.insert(&scene_plan.scene_id), "duplicate motion scene: {}", scene_plan.scene_id);
+            ensure!(!scene_plan.steps.is_empty() && scene_plan.steps.len() <= scene.narration.len(), "motion scene {} needs 1..narration-count steps", scene_plan.scene_id);
+            ensure!(scene_plan.steps[0].utterance_index == 0, "motion scene {} first step must start at narration[0]", scene_plan.scene_id);
+
+            let mut previous_index = None;
+            for step in &scene_plan.steps {
+                ensure!(step.utterance_index < scene.narration.len(), "motion step exceeds narration count for {}", scene_plan.scene_id);
+                if let Some(previous) = previous_index {
+                    ensure!(step.utterance_index > previous, "motion steps must use strictly increasing narration indices for {}", scene_plan.scene_id);
+                }
+                previous_index = Some(step.utterance_index);
+                ensure!(step.elements.len() <= 12, "motion step supports at most 12 elements");
+
+                let mut ids = HashSet::new();
+                let mut targets = HashSet::new();
+                for element in &step.elements {
+                    ensure!(motion_id(element.id()), "invalid motion element id: {}", element.id());
+                    ensure!(ids.insert(element.id()), "duplicate motion element id in one step: {}", element.id());
+                    if !element.is_relation() {
+                        targets.insert(element.id());
+                    }
+                    match element {
+                        MotionElement::Text { text, .. } => {
+                            ensure!(motion_text(text, 160, true), "motion text must be 1..160 readable characters");
+                        }
+                        MotionElement::Stat { label, value, .. } => {
+                            ensure!(motion_text(label, 48, false) && motion_text(value, 48, false), "motion stat label/value must be 1..48 readable characters");
+                        }
+                        MotionElement::Relation { label, .. } => {
+                            if let Some(label) = label {
+                                ensure!(motion_text(label, 48, false), "motion relation label must be 1..48 readable characters");
+                            }
+                        }
+                        MotionElement::Matrix { title, headers, rows, .. } => {
+                            ensure!(motion_text(title, 80, false), "motion matrix title must be 1..80 readable characters");
+                            ensure!((2..=4).contains(&headers.len()), "motion matrix needs 2..4 columns");
+                            ensure!(headers.iter().all(|cell| motion_text(cell, 32, false)), "motion matrix headers must be 1..32 readable characters");
+                            ensure!((1..=4).contains(&rows.len()), "motion matrix needs 1..4 rows");
+                            ensure!(rows.iter().all(|row| row.len() == headers.len() && row.iter().all(|cell| motion_text(cell, 40, false))), "motion matrix rows must match headers and contain 1..40 character cells");
+                        }
+                        MotionElement::Formula { text, highlight, note, .. } => {
+                            ensure!(motion_text(text, 180, false), "motion formula must be 1..180 readable characters");
+                            if let Some(highlight) = highlight {
+                                ensure!(motion_text(highlight, 80, false) && text.contains(highlight), "motion formula highlight must occur verbatim in formula text");
+                            }
+                            if let Some(note) = note {
+                                ensure!(motion_text(note, 120, true), "motion formula note must be 1..120 readable characters");
+                            }
+                        }
+                    }
+                }
+                for element in &step.elements {
+                    if let MotionElement::Relation { from, to, .. } = element {
+                        ensure!(from != to && targets.contains(from.as_str()) && targets.contains(to.as_str()), "motion relation endpoints must reference two non-relation element ids in the same step");
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+
 impl Assets {
     /// The caller validates the Storyboard first, then checks actual files at the I/O boundary.
     pub fn validate(&self, board: &Storyboard) -> Result<()> {
@@ -134,6 +319,87 @@ mod tests {
         Assets { schema_version: 1, images: board.scenes.iter().map(|s| SceneImage {
             scene_id: s.id.clone(), file: format!("images/{}.png", s.id), screen_text: String::new(),
         }).collect(), cover: None, audio: None, cues: vec![] }
+    }
+
+
+    fn motion_plan(board: &Storyboard) -> MotionPlan {
+        MotionPlan {
+            schema_version: 1,
+            scenes: vec![MotionScenePlan {
+                scene_id: board.scenes[0].id.clone(),
+                steps: vec![MotionStep {
+                    utterance_index: 0,
+                    elements: vec![
+                        MotionElement::Stat {
+                            id: "a".into(),
+                            label: "A".into(),
+                            value: "18:00".into(),
+                            slot: MotionSlot::Left,
+                            emphasis: false,
+                        },
+                        MotionElement::Stat {
+                            id: "b".into(),
+                            label: "B".into(),
+                            value: "19:00".into(),
+                            slot: MotionSlot::Right,
+                            emphasis: true,
+                        },
+                        MotionElement::Relation {
+                            id: "edge".into(),
+                            from: "a".into(),
+                            to: "b".into(),
+                            label: Some("变化".into()),
+                            slot: MotionSlot::Center,
+                        },
+                        MotionElement::Formula {
+                            id: "formula".into(),
+                            text: "Sₜ₊₁ = F(Sₜ, Aₜ, Eₜ, εₜ)".into(),
+                            highlight: Some("Aₜ".into()),
+                            note: Some("行动只是输入之一".into()),
+                            slot: MotionSlot::Bottom,
+                        },
+                    ],
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn motion_primitives_are_bounded_and_grounded_in_storyboard_steps() {
+        let board = board();
+        motion_plan(&board).validate(&board).unwrap();
+
+        for case in 0..6 {
+            let mut plan = motion_plan(&board);
+            match case {
+                0 => plan.schema_version = 2,
+                1 => plan.scenes[0].scene_id = "missing".into(),
+                2 => plan.scenes[0].steps[0].utterance_index = 99,
+                3 => plan.scenes[0].steps[0].elements.push(MotionElement::Text {
+                    id: "a".into(), text: "duplicate".into(), slot: MotionSlot::Center, emphasis: false,
+                }),
+                4 => {
+                    if let MotionElement::Relation { to, .. } = &mut plan.scenes[0].steps[0].elements[2] {
+                        *to = "missing".into();
+                    }
+                }
+                _ => {
+                    if let MotionElement::Formula { highlight, .. } = &mut plan.scenes[0].steps[0].elements[3] {
+                        *highlight = Some("not-in-formula".into());
+                    }
+                }
+            }
+            assert!(plan.validate(&board).is_err(), "case {case}");
+        }
+    }
+
+    #[test]
+    fn motion_unknown_fields_are_rejected() {
+        let board = board();
+        let plan = motion_plan(&board);
+        let mut value = serde_json::to_value(plan).unwrap();
+        value["scenes"][0]["steps"][0]["elements"][0]["script"] = "alert(1)".into();
+        assert!(serde_json::from_value::<MotionPlan>(value).is_err());
     }
 
     #[test]
