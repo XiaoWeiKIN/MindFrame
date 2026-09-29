@@ -37,7 +37,9 @@ async function main() {
     const serveUrl = await bundle({entryPoint: join(home, 'src/index.tsx'), publicDir: assets, outDir: join(work, 'bundle')});
     const common = {serveUrl, inputProps, browserExecutable};
     const composition = await selectComposition({...common, id: 'MindFrame'});
-    await renderMedia({...common, composition, codec: 'h264', audioCodec: 'aac', pixelFormat: 'yuv420p', crf: 20, concurrency: 2, scale, outputLocation: pendingVideo});
+    // JPEG capture retained full-range yuvj420p in CI despite pixelFormat. Use lossless
+    // RGB frames and Remotion's explicit BT.709 conversion; retain the strict media gate.
+    await renderMedia({...common, composition, codec: 'h264', audioCodec: 'aac', pixelFormat: 'yuv420p', imageFormat: 'png', colorSpace: 'bt709', crf: 20, concurrency: 2, scale, outputLocation: pendingVideo});
     await renderStill({...common, composition, frame: Math.min(20, durationInFrames - 1), imageFormat: 'png', scale, output: pendingCover});
     await rename(pendingVideo, join(project, `${preset}.mp4`));
     await rename(pendingCover, join(project, `cover-${preset}.png`));
