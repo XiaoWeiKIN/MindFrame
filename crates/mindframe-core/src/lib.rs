@@ -1,3 +1,5 @@
+pub mod materials;
+
 use std::collections::HashSet;
 
 use anyhow::{Result, ensure};

@@ -1,72 +1,68 @@
-# MindFrame V1 Architecture
+# MindFrame Architecture
 
-## Scope
+## Primary boundary: chat-authored materials
 
-A CLI for one explicit Markdown source, inspectable content planning, speech/image production,
-and two local video layouts. No vault scanning, research agent, job scheduler, Web UI or upload integration.
+The authoring environment owns understanding, narration, scene planning and image generation.
+MindFrame owns local file validation and export. It is not a ChatGPT session/API proxy.
 
 ```mermaid
 flowchart LR
-  Source[Markdown snapshot] --> Plan[Rust: plan]
-  Plan --> Board[Storyboard v1]
-  Board --> Review[Human review]
-  Review --> Produce[Rust: produce]
-  Produce --> Assets[PNG + measured WAV]
-  Produce --> Timeline[Timeline v1 / 30 fps]
-  Timeline --> Render[TypeScript / Remotion]
-  Assets --> Render
-  Render --> Video[H.264 / AAC MP4]
+  Source[Explicit Markdown snapshot] --> Chat[Chat authoring and image tool]
+  Chat --> Files[Saved storyboard + asset manifest + actual images]
+  Files --> Import[Rust import]
+  Import --> Project[project.json + source.md + content/]
+  Project --> Export[Rust export]
+  Export --> Editor[Standard material pack for manual editing]
 ```
 
-## Code boundaries
+`crates/mindframe-core/src/lib.rs` retains Storyboard v1 and the legacy Timeline contract unchanged.
+`materials.rs` adds Project/Assets/Cue contracts, portable paths, exact scene mapping, supplied-timing
+validation and subtitle/CSV text helpers. Storyboard narration remains the only editable script authority.
+Schemas are generated from Rust types; semantic quote entailment still needs human review.
 
-`crates/mindframe-core/src/lib.rs` owns the serializable Storyboard/Timeline contracts,
-source-reference checks, scene invariants and SRT export. Schemas are derived with schemars,
-not separately hand-maintained. The old unversioned scaffold format is intentionally unsupported.
+`crates/mindframe-cli/src/materials.rs` owns local filesystem operations, real PNG/JPEG/WebP decoding,
+PCM 16-bit WAV inspection and staged directory publication. It never calls Config, HTTP, TTS, Node or
+FFmpeg. Image paths are explicit, normalized on import and copied byte-for-byte. Only manifest-listed
+materials are copied. Complete source snapshots and configuration are not included in exports;
+selected source quotations intentionally remain in key-points.md.
 
-`crates/mindframe-cli/src/main.rs` owns command selection and early argument checks.
-`pipeline.rs` owns explicit file I/O, one concrete HTTP implementation for each endpoint contract,
-local eSpeak, and FFmpeg/Node subprocesses. There are two crates, no speculative provider traits,
-no async runtime and no orchestration framework.
+Project JSON distinguishes the new format from old root-level Storyboard/Timeline projects. A broken
+project marker fails rather than falling back. init creates a source snapshot and authoring handoff;
+import publishes content/ once; validate rechecks current edit sources; export regenerates previews
+and writes to a fresh directory. No independent import-script editing authority, provider traits,
+background jobs, dependency injection framework or persistent database is introduced.
 
-`renderer/remotion/render.mjs` owns local dependency checks, bundling, MP4 and cover output.
-`contract.mjs` rejects malformed timeline inputs and arbitrary media paths at the JS process boundary.
-`src/index.tsx` owns the six visual templates and non-overlapping scene entrances. Source notes and
-credentials are not included in the browser's served public directory.
+## Timing and editor boundary
 
-## Commands and authority
+Missing recording/timings are valid. Export plain subtitles.txt and leave CSV time cells blank.
+Optional user-supplied cues must exactly cover ordered narration items with matching text,
+non-overlapping positive millisecond ranges and an end within the actual recording duration.
+Only then export SRT. These checks do not verify speech alignment or authorship.
 
-`plan` is the only LLM stage. `produce` reads a reviewed storyboard; it does not decide what the
-source means. `render` makes no model requests and allows visual edits when scene IDs, order and
-narration remain unchanged. The source snapshot and exact quote checks preserve provenance;
-semantic entailment still requires human review.
+The export is not a native Jianying draft or automatic timeline. CSV and Markdown document placement
+and transition intent; users create the actual editor tracks. Input image dimensions are reported,
+not silently stretched to a platform preset. No claim is made about a tested editor UI/version.
 
-## Media timing
+## Failure and compatibility
 
-Each narration item is synthesized independently, normalized to 48 kHz mono PCM, measured by
-ffprobe and padded to a multiple of 1600 samples (one 30 fps frame). Ordered clips are contiguous.
-The complete voice track, SRT and Remotion sequences share those frame boundaries. Entrance
-animations do not overlap scenes or subtract time from speech.
+Boundary checks reject unsupported formats, bad references, missing/corrupt media, traversal and
+material symlinks. JSON limits are 2 MiB; source remains 64 KiB; raster files are at most50 MiB,
+8192 pixels per side with256 MiB decoder allocation; WAV at most256 MiB and one hour.
+These are supported-product limits, not a general untrusted-code sandbox.
 
-## Failure and recovery
+Import/export publish from a same-parent temporary directory after preparation succeeds. Existing
+content/ and exports are not overwritten. A local single writer is assumed; simultaneous edits to
+source assets during copying are unsupported. Partial work is removed on normal errors.
 
-Unsupported input, absent credentials and dependencies fail before paid operations when these
-conditions are locally knowable. There are no silent model fallbacks or paid retries. Media
-production reserves an assets directory and leaves partial output on failure; a new project is
-required for regeneration. A render writes pending files and promotes only successful outputs.
-This is a local, single-writer project workflow, not a concurrent service.
+The optional old API/media pipeline stays in pipeline.rs and renderer/remotion/. It has a distinct
+root-level project format and separate dependency requirements. New material projects cannot
+silently invoke produce/render. Existing Timeline and paid-provider behavior are preserved.
 
-## Engineering tracking
+## Engineering and verification
 
-EP-001 uses RepoFoundry's execution-plan template fallback because its controller cannot be
-installed in the current network-restricted coding environment. Repository inspection found no
-existing EP, index or high-water state; EP-001 was allocated from that empty inventory. This is
-not a claim that Harness bootstrap, Spec activation, controller validation or archival ran.
-No accepted ADR, approved Design revision or sealed Checkpoint is fabricated.
+EP-001 remains active under the existing RepoFoundry controller-unavailable template fallback.
+No Harness activation, accepted ADR, approved Design, sealed Checkpoint or formal archival is claimed.
 
-## Verification
-
-`scripts/check.py` is the canonical Rust/TypeScript unit and static-check entrypoint.
-`scripts/integration_test.py` runs loopback provider contracts and real media rendering.
-CI exports generated schemas, dependency resolution, videos and verification.json. Live API
-compatibility, artistic quality and publishing suitability are distinct from fixture-test success.
+The chat-materials CI job runs Clippy, Rust tests and scripts/chat_smoke.py with the actual CLI.
+Tests explicitly clear keys/PATH for the primary path. Synthetic rasters/silent WAVs prove file and
+contract behavior, not model output quality. The original full-media CI remains independently visible.

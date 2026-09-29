@@ -6,6 +6,28 @@ on:
 permissions:
   contents: read
 jobs:
+  chat-materials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Rust contract and local-material checks
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          cargo build --workspace
+      - name: Chat material CLI smoke test (no API keys, no media subprocesses)
+        run: python3 scripts/chat_smoke.py --out output/chat-smoke
+      - name: Save inspectable material fixture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindframe-chat-materials
+          path: output/chat-smoke/
+          retention-days: 7
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 25

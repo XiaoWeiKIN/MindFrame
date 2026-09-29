@@ -1,141 +1,159 @@
 # MindFrame
 
-**让自己的知识变成有画面、有旁白、可审改的视频。**
+**在聊天里创作，在本地整理，交给剪映剪辑。**
 
-V1（crate 版本 `0.1.0`）是本地 CLI，不是 SaaS，也不会扫描或上传整个知识库。
-输入一篇 Markdown，输出关键信息、口播稿、分镜、配图、配音、字幕与 MP4。
+你把文档交给 ChatGPT，审改观点、口播和分镜，再生成图片。
+MindFrame 接收这些**实际文件**，校验场景对应关系，导出标准素材和剪辑清单。
+主流程不调用模型 API，不需要 API Key，也不要求 Node、FFmpeg 或剪映已安装。
+首次编译仍需下载 Rust 依赖。
 
 ```mermaid
 flowchart LR
-  A[自己的 Markdown] --> B[LLM 提炼与口播]
-  B --> C[可审改 storyboard.json]
-  C --> D[图片与逐句配音]
-  D --> E[按真实音频长度生成时间轴]
-  E --> F[Remotion]
-  F --> G[B站横屏 MP4]
-  F --> H[抖音竖屏 MP4]
+  A[所选文档] --> B[聊天中提炼观点和写口播]
+  B --> C[分镜与实际生成的图片]
+  C --> D[保存文件到本机]
+  D --> E[MindFrame 导入与校验]
+  E --> F[标准素材包]
+  F --> G[剪映人工剪辑]
 ```
 
-## 安装
+## 安装和主流程
 
-需要 Rust（支持 edition 2024）、Node.js 22、FFmpeg/ffprobe，以及中文字体。
-默认 Remotion 会下载浏览器，也可以设置 `REMOTION_BROWSER_EXECUTABLE` 为已有 Chromium 的绝对路径。
-
-在仓库根目录运行：
+需要支持 edition 2024 的 Rust。在仓库根目录执行：
 
 ```bash
-# Ubuntu / Debian；本地 demo 还需要 espeak。
-sudo apt-get install ffmpeg espeak fonts-noto-cjk
-npm --prefix renderer/remotion install
-cargo build --workspace
 cargo install --path crates/mindframe-cli
+mindframe init /path/to/article.md --out projects/article --preset douyin
 ```
 
-macOS 可安装对应的 FFmpeg 和 eSpeak；本版本的自动化验收环境为 Linux。
-在仓库外运行时，用 `--renderer /absolute/path/to/MindFrame/renderer/remotion` 指定渲染器。
+`init` 只读取这一篇 UTF-8 Markdown（上限64 KiB），生成原文快照、带行号副本和
+`chat-request.md`。把请求文件与原文交给聊天助手，按其中的 Schema 创作。
+PDF/Word 可以先在聊天中整理成一份忠实的 Markdown 快照；CLI 本身不解析 PDF/Word。
 
-## 先看不收费的演示
-
-```bash
-mindframe demo --out output/demo --preset both --scale 0.5
-```
-
-它使用仓库内**人工编写的演示分镜与 eSpeak 合成音**，不是在线 LLM 结果，
-也不代表云端自然语音或 AI 配图的质量。首次安装依赖与下载浏览器仍需联网。
-`--scale 0.5` 是半分辨率预览；省略则为全高清。
-
-## 用自己的材料生成
-
-```bash
-cp mindframe.example.toml mindframe.toml
-export OPENAI_API_KEY='在自己的终端设置，不提交到仓库'
-
-# 一次完成。模型调用按所配置服务计费，不会自动重试或切换供应商。
-mindframe build /path/to/vault/article.md --out output/article --preset both
-```
-
-配置中的模型名称可按自己的账号可用模型修改。LLM 使用 Chat Completions JSON 模式；
-TTS 使用 Speech WAV 接口；图片接口使用 GPT Image 的 PNG/base64 契约。
-这不意味着任意宣称“兼容”的服务都支持全部三个接口。
-
-**更适合正式发布的操作方式：先审核内容，再制作。**
-
-```bash
-mindframe plan /path/to/vault/article.md --out output/article
-# 审核并修改 output/article/storyboard.json
-mindframe validate output/article
-mindframe produce output/article --preset both
-```
-
-`storyboard.json` 是编辑源。修改其 `narration` 数组来调整口播；`script.md` 与
-`key-points.md` 是导出预览，`produce` 会重新生成它们，不要直接编辑导出文件。
-每个旁白短句单独配音、测量、补齐到 30 fps 的完整帧；字幕和画面使用同一组时间戳，
-不靠字数估算。逐句合成会增加请求次数，句间语气连贯性需要试听。
-
-## 画面与转场
-
-支持标题、关键点卡片、AI 配图、原文引用、Mermaid 流程图、代码文字。
-转场支持硬切、淡入、位移入场，场景不重叠，不会让两段旁白同时播放。
-代码只作为画面文字展示，绝不执行。Mermaid V1 仅支持无 HTML、链接或配置指令的流程图。
-
-```bash
-# 更改标题、卡片、流程图或 transition 后免费重渲染；不再次调用模型。
-mindframe render output/article --preset both
-```
-
-重渲染会验证旁白、场景 ID 与顺序未改变，避免新稿搭配旧声音。
-改旁白或场景数量后，请将 `source.md` 和 `storyboard.json` 复制到一个**新的项目目录**再 `produce`。
-修改图片提示词不会自动重新生成图片；也可用自己的 PNG 替换 `assets/<scene-id>.png` 后重渲染。
-
-## 输出
+聊天助手负责生成 `storyboard.json`、`assets.json` 与实际图片。保存到本地，例如：
 
 ```text
-output/article/
-├── source.md                  # 所选素材的原始快照
-├── planner-response.txt        # 原始模型输出，失败时也可检查
-├── key-points.md               # 观点与素材行号、逐字引用
-├── script.md                  # 口播导出
-├── storyboard.json            # 内容编辑源
-├── assets/                    # PNG 和逐句 WAV
-├── voice.wav                  # 完整旁白，48 kHz 单声道 PCM
-├── subtitles.srt              # 与真实音频时间轴对应
-├── timeline.json              # 制作时冻结的音频/分镜快照
-├── render-input.json           # 本次视觉编辑快照
-├── bilibili.mp4               # 默认 1920×1080，H.264 + AAC
-├── douyin.mp4                 # 默认 1080×1920，H.264 + AAC
-├── cover-bilibili.png
-└── cover-douyin.png
+chat-output/
+├── storyboard.json
+├── assets.json
+└── images/
+    ├── scene-01.png
+    └── scene-02.webp
 ```
 
-两个平台预设只改变画面布局，**不自动把长内容剪成短视频**。不同篇幅应分别规划。
-输出目录禁止覆盖；已存在的 `assets/` 禁止自动重新收费生成。
-制作失败时保留中间产物供检查，V1 没有断点续费重试与局部 TTS 重生成。
-渲染失败可直接再次 `render`，已有有效 MP4 不会被失败的半成品替换。
-
-## 内容与隐私边界
-
-只读取你选择的单个 UTF-8 `.md` 文件，上限 64 KiB。PDF、整库检索、附件自动解析暂不支持。
-API 规划会把这篇素材发给配置的 LLM；配音发送口播，配图发送图片提示词。
-没有默认联网研究，没有发布账号接入，也不会自动发布到任何平台。
-
-引用校验能发现不存在的行号、非逐字引用与错误索引，**不能证明哲学解读或技术结论正确**。
-公开前仍需审核观点、语音读法、文字布局、素材许可和 AI 内容标识要求。
-凭据只从环境变量读取；生产配置和输出目录已被 Git 忽略。错误日志不输出 API 响应正文。
-
-## 开发与验收
+然后运行：
 
 ```bash
-python3 scripts/check.py
-cargo run -p mindframe-cli -- schema --out output/schemas
-python3 scripts/integration_test.py --out output/integration
+mindframe import projects/article --from ./chat-output
+mindframe validate projects/article
+mindframe export projects/article --target jianying --out dist/article
 ```
 
-集成测试使用本地 HTTP 假服务验证三个供应商接口，但真正执行 Rust CLI、eSpeak、FFmpeg
-和 Remotion，检查六种画面、横竖 MP4、音视频编码、时长、完整解码、错误脱敏与旧旁白拦截。
-**假服务测试不等于真实云端 API 联调。** GitHub Actions 保存测试视频和验证报告供下载。
+**这不是让 CLI 直接调用你的聊天会话。** 它不读取 Cookie、不登录 ChatGPT、不把订阅
+额度当作 API 额度；创作发生在聊天中，本地命令处理保存下来的文件。
+图像模型由聊天环境决定；只有工具明确提供型号选择时才能保证使用指定型号。
+MindFrame 不验证图片来自哪个模型，只验证实际 PNG/JPEG/WebP 文件及其场景映射。
+可复用的作者指导见 [prompts/chat-authoring.md](prompts/chat-authoring.md)；
+[作者 Skill](skills/mindframe-author/SKILL.md) 是仓库内可移植说明，不代表已经安装到你的聊天环境。
 
-架构见 [ARCHITECTURE.md](ARCHITECTURE.md)。进度见
-[EP-001](docs/exec-plans/active/ep-001_v1/EXECPLAN.md)。开发遵循
-[项目编码原则](docs/engineering/development-principles.md)。
+## 编辑源与图片映射
 
-MindFrame 自身代码沿用仓库的 MIT 声明；Remotion 的许可证单独适用，使用前需核对上游条款。
+`content/storyboard.json` 是唯一的口播/观点编辑源；`script.md` 和 `key-points.md`
+只是导出预览。改稿后重新 `export` 到新目录，不要只编辑预览文件。
+`content/assets.json` 维护真实文件、屏幕文字、可选录音与时间点。
+
+```json
+{
+  "schema_version": 1,
+  "images": [
+    {"scene_id": "scene-01", "file": "images/scene-01.png", "screen_text": "这一幕的关键词"},
+    {"scene_id": "scene-02", "file": "images/scene-02.webp", "screen_text": "第二个概念"}
+  ]
+}
+```
+
+每个场景必须显式对应一张图片；不根据文件排序猜测。支持真实 PNG、JPEG、WebP，
+单张上限50 MiB、边长8192像素、解码分配上限256 MiB。导入保留原图字节，统一文件命名，
+不自动裁剪、拉伸或重生成。文件扩展名必须与内容相符，图片提示词不是图片。
+目标比例与原图不一致时，应在剪映中裁切/留边；`material-report.json` 记录实际尺寸。
+
+项目格式：
+
+```text
+projects/article/
+├── project.json
+├── source.md
+├── source.numbered.txt
+├── chat-request.md
+└── content/
+    ├── storyboard.json
+    ├── assets.json
+    ├── script.md
+    ├── key-points.md
+    ├── images/
+    ├── cover.png            # 可选；按实际格式保留后缀
+    └── audio/narration.wav  # 可选
+```
+
+## 口播稿不等于配音，文本不等于定时字幕
+
+默认仅需文字和图片。没有录音/时间点时导出 `subtitles.txt`，不生成假的 SRT，
+`shot-list.csv` 的时间列留空。你可以在剪映里自行录音、配音和制作字幕。
+
+已有录音时在 assets.json 指定 `audio` 相对路径：仅支持 PCM 16位单/双声道 WAV，
+上限256 MiB且不超过一小时。只有录音但没有 cues，仍不自动产生时间戳。
+需生成 SRT 时，附与录音匹配且人工核对的逐句 cues，例如：
+
+```json
+{
+  "scene_id": "scene-01",
+  "utterance_index": 0,
+  "text": "与这个场景 narration[0] 完全一致的口播。",
+  "start_ms": 200,
+  "end_ms": 3400
+}
+```
+
+cues 必须按分镜/句子顺序覆盖全部口播且不重叠；时间不能超过实际 WAV 长度。
+程序检查文字一致性和时间范围，**不声称已经听懂并验证语音对齐**。
+改口播后旧 cues 会被拒绝，应重新对齐，或明确移除旧录音和 cues 回到未配音素材状态。
+
+## 剪映素材包
+
+导出包含图片、可选封面/录音、口播稿、关键信息、分镜说明、`shot-list.csv`、
+`subtitles.txt`、有真实输入时间点时的 `subtitles.srt`，以及导入说明和素材报告。
+
+**不是剪映原生草稿，不会自动排轨、设置转场或发布抖音。**
+分镜中的 cut/fade/slide 是人工剪辑建议。CSV/Markdown/JSON 是说明文件，不是可直接
+加载的剪映时间线。SRT 的导入入口需在你使用的编辑器版本中确认，本项目没有完成该 UI 验收。
+
+原文完整快照、聊天请求、配置和未引用文件不会复制到导出包；选取的原文引文仍保留在关键点中。
+导入/导出拒绝覆盖已有目录。缺图、坏图、错误引用、路径穿越、素材符号链接、损坏录音会明确失败。
+使用同目录临时工作区完成后再发布，失败不留下半份 content/ 或导出包；不要并发写同一项目。
+再次导入整批素材应创建新项目；局部修订可直接编辑现有 content/ 后重新校验和导出。
+ZIP 自动解包、整库扫描、网页抓取、自动配音和原生剪映工程都不属于这条主流程。
+
+## 可选的旧 API / Remotion 路线
+
+之前的 `plan / build / produce / render / demo` 仍保留，用于旧的根目录
+`source.md + storyboard.json + timeline.json` 项目，不是新素材格式的隐式后端。
+它们需要各自的模型配置、Node/Remotion/FFmpeg 等依赖；API 命令可能产生费用。
+新格式执行 produce/render 会提前报错，不会悄悄调用收费服务。
+说明见 [docs/legacy-video.md](docs/legacy-video.md)。
+
+## 验收
+
+```bash
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo build --workspace
+python3 scripts/chat_smoke.py --out output/chat-smoke
+```
+
+核心测试清空环境变量与 PATH 后启动实际 CLI，检查无密钥导入/导出、图片字节保留、
+WAV与手工时间点、错误输入及非覆盖行为。冒烟素材是程序生成的测试 PNG 与静音 WAV，
+**不是 GPT 生成图片、真实配音或艺术质量评估**。
+
+完整旧视频验收仍使用 `python3 scripts/check.py` 和
+`python3 scripts/integration_test.py --out output/<new-directory>`。
+研发状态见 [EP-001](docs/exec-plans/active/ep-001_v1/EXECPLAN.md)。

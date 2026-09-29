@@ -1,14 +1,15 @@
+mod materials;
 mod pipeline;
 
 use std::{fs, path::PathBuf};
 
 use anyhow::{Result, ensure};
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use mindframe_core::{Storyboard, Timeline};
+use mindframe_core::{Storyboard, Timeline, materials::{Assets, Project}};
 use pipeline::Config;
 
 #[derive(Parser)]
-#[command(name = "mindframe", version, about = "把自己的知识材料变成可审改的视频")]
+#[command(name = "mindframe", version, about = "把聊天创作的口播和图片整理成剪辑素材包")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -30,43 +31,80 @@ pub struct RenderOptions {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Extract grounded key points and write an editable storyboard; no media API calls.
+    /// Create a local source snapshot and an authoring handoff for chat. No API calls.
+    Init {
+        input: PathBuf,
+        #[arg(long)] out: PathBuf,
+        #[arg(long, value_parser = ["douyin", "bilibili"], default_value = "douyin")]
+        preset: String,
+    },
+    /// Import an authored directory containing storyboard.json, assets.json and actual media.
+    Import {
+        project: PathBuf,
+        #[arg(long)] from: PathBuf,
+    },
+    /// Export standard media and editing instructions, not a native editor draft.
+    Export {
+        project: PathBuf,
+        #[arg(long, value_parser = ["jianying"], default_value = "jianying")]
+        target: String,
+        #[arg(long)] out: PathBuf,
+    },
+    /// Validate chat materials or a legacy storyboard project, without model calls.
+    Validate { project: PathBuf },
+    /// Generate JSON Schemas from the Rust contract types.
+    Schema { #[arg(long, default_value = "schemas")] out: PathBuf },
+    /// Optional API workflow: plan content through the configured LLM (may incur charges).
     Plan {
         input: PathBuf,
         #[arg(long)] out: PathBuf,
         #[arg(long, default_value = "mindframe.toml")] config: PathBuf,
     },
-    /// Run planning, media production and MP4 rendering.
+    /// Optional API workflow: planning, media production and MP4 rendering.
     Build {
         input: PathBuf,
         #[arg(long)] out: PathBuf,
         #[arg(long, default_value = "mindframe.toml")] config: PathBuf,
         #[command(flatten)] render: RenderOptions,
     },
-    /// Produce media from an approved/edited storyboard without calling the LLM again.
+    /// Optional API workflow: produce media from an edited legacy storyboard project.
     Produce {
         project: PathBuf,
         #[arg(long, default_value = "mindframe.toml")] config: PathBuf,
         #[command(flatten)] render: RenderOptions,
     },
-    /// Re-render existing timed media without any model calls.
+    /// Re-render an existing legacy timed-media project without model calls.
     Render {
         project: PathBuf,
         #[command(flatten)] render: RenderOptions,
     },
-    /// Explicit offline content fixture with local eSpeak speech, not AI-generated knowledge.
+    /// Curated legacy demo with local eSpeak, not AI-generated content.
     Demo {
         #[arg(long)] out: PathBuf,
         #[command(flatten)] render: RenderOptions,
     },
-    /// Validate the storyboard and its literal source references.
-    Validate { project: PathBuf },
-    /// Generate JSON Schemas from the Rust contract types.
-    Schema { #[arg(long, default_value = "schemas")] out: PathBuf },
 }
 
 fn main() -> Result<()> {
     match Cli::parse().command {
+        Command::Init { input, out, preset } => materials::init(&input, &out, preset)?,
+        Command::Import { project, from } => materials::import(&project, &from)?,
+        Command::Export { project, target: _, out } => materials::export(&project, &out)?,
+        Command::Validate { project } => {
+            if project.join("project.json").symlink_metadata().is_ok() {
+                materials::validate(&project)?;
+            } else {
+                pipeline::load_board(&project)?;
+                println!("storyboard and source references: valid (semantic accuracy still needs human review)");
+            }
+        }
+        Command::Schema { out } => {
+            fs::create_dir_all(&out)?;
+            pipeline::write_json(&out.join("storyboard.schema.json"), &schemars::schema_for!(Storyboard))?;
+            pipeline::write_json(&out.join("timeline.schema.json"), &schemars::schema_for!(Timeline))?;
+            pipeline::write_json(&out.join("project.schema.json"), &schemars::schema_for!(Project))?;
+            pipeline::write_json(&out.join("assets.schema.json"), &schemars::schema_for!(Assets))?;
+        }
         Command::Plan { input, out, config } => {
             let source = pipeline::read_source(&input)?;
             let config = Config::load(&config)?;
@@ -84,12 +122,14 @@ fn main() -> Result<()> {
             pipeline::render(&out, &render)?;
         }
         Command::Produce { project, config, render } => {
+            ensure!(!project.join("project.json").try_exists()?, "chat-material projects use export --target jianying; produce is the separate optional API workflow");
             let config = Config::load(&config)?;
             pipeline::check_renderer(&render)?;
             pipeline::produce(&project, &config)?;
             pipeline::render(&project, &render)?;
         }
         Command::Render { project, render } => {
+            ensure!(!project.join("project.json").try_exists()?, "chat-material projects use export --target jianying; direct Remotion rendering of this format is not implemented");
             pipeline::check_renderer(&render)?;
             pipeline::render(&project, &render)?;
         }
@@ -103,15 +143,6 @@ fn main() -> Result<()> {
             fs::write(out.join("DEMO.txt"), "Curated content fixture. Local eSpeak voice. Not a live LLM/TTS/image-provider quality test.\n")?;
             pipeline::produce(&out, &config)?;
             pipeline::render(&out, &render)?;
-        }
-        Command::Validate { project } => {
-            pipeline::load_board(&project)?;
-            println!("storyboard and source references: valid (semantic accuracy still needs human review)");
-        }
-        Command::Schema { out } => {
-            fs::create_dir_all(&out)?;
-            pipeline::write_json(&out.join("storyboard.schema.json"), &schemars::schema_for!(Storyboard))?;
-            pipeline::write_json(&out.join("timeline.schema.json"), &schemars::schema_for!(Timeline))?;
         }
     }
     Ok(())
