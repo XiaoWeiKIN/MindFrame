@@ -108,19 +108,26 @@ const ElementCard: React.FC<{element: MotionElement; lookup: Map<string, MotionE
   }
 };
 
-const PrimitiveLayer: React.FC<{step: MotionStep}> = ({step}) => {
+const PrimitiveLayer: React.FC<{step: MotionStep; previous?: MotionStep}> = ({step, previous}) => {
   const frame = useCurrentFrame();
   const {width, height} = useVideoConfig();
   const portrait = height > width;
   const enter = interpolate(frame, [0, Math.min(8, Math.max(1, step.duration_frames - 1))], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const lookup = new Map<string, MotionElement>(step.elements.map((element): [string, MotionElement] => [element.id, element]));
+  const previousLookup = new Map<string, MotionElement>((previous?.elements ?? []).map((element): [string, MotionElement] => [element.id, element]));
   const slots: MotionSlot[] = ['top', 'left', 'center', 'right', 'bottom'];
-  return <AbsoluteFill style={{opacity: enter, transform: `translateY(${(1 - enter) * 12}px)`}}>
+  return <AbsoluteFill>
     {slots.map((slot) => {
       const elements = step.elements.filter((element) => element.slot === slot);
       if (!elements.length) return null;
       return <div key={slot} style={slotStyle(slot, portrait)}>
-        {elements.map((element) => <ElementCard key={element.id} element={element} lookup={lookup} portrait={portrait} />)}
+        {elements.map((element) => {
+          const prior = previousLookup.get(element.id);
+          const changed = !prior || JSON.stringify(prior) !== JSON.stringify(element);
+          return <div key={element.id} style={{opacity: changed ? enter : 1, transform: changed ? `translateY(${(1 - enter) * 12}px)` : 'none'}}>
+            <ElementCard element={element} lookup={lookup} portrait={portrait} />
+          </div>;
+        })}
       </div>;
     })}
   </AbsoluteFill>;
@@ -133,7 +140,7 @@ const MotionVideo: React.FC<MotionProps> = ({title, audio, scenes, subtitles, du
     {scenes.map((scene) => <Sequence key={scene.id} from={scene.start_frame} durationInFrames={scene.duration_frames}>
       <Background scene={scene} globalStart={scene.start_frame} total={duration_frames} />
       {scene.steps?.length
-        ? scene.steps.map((step) => <Sequence key={`${scene.id}-step-${step.utterance_index}`} from={step.start_frame - scene.start_frame} durationInFrames={step.duration_frames}><PrimitiveLayer step={step} /></Sequence>)
+        ? scene.steps.map((step, index) => <Sequence key={`${scene.id}-step-${step.utterance_index}`} from={step.start_frame - scene.start_frame} durationInFrames={step.duration_frames}><PrimitiveLayer step={step} previous={scene.steps?.[index - 1]} /></Sequence>)
         : <Emphasis text={scene.screen_text} duration={scene.duration_frames} />}
     </Sequence>)}
 
