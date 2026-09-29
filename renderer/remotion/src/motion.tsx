@@ -113,7 +113,7 @@ const PrimitiveLayer: React.FC<{step: MotionStep}> = ({step}) => {
   const {width, height} = useVideoConfig();
   const portrait = height > width;
   const enter = interpolate(frame, [0, Math.min(8, Math.max(1, step.duration_frames - 1))], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const lookup = new Map(step.elements.map((element) => [element.id, element]));
+  const lookup = new Map<string, MotionElement>(step.elements.map((element): [string, MotionElement] => [element.id, element]));
   const slots: MotionSlot[] = ['top', 'left', 'center', 'right', 'bottom'];
   return <AbsoluteFill style={{opacity: enter, transform: `translateY(${(1 - enter) * 12}px)`}}>
     {slots.map((slot) => {
