@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "title": "选择如何进入反馈回路",
+  "summary": "合成教学示例：保留概念、模型与限制。",
+  "key_points": [
+    {
+      "text": "历史影响选择，但未来不唯一。",
+      "sources": [{"line_start": 5, "line_end": 5, "quote": "路径依赖：过去的选择会留下习惯，影响后续选择；这不表示只有一种未来。"}]
+    },
+    {
+      "text": "判断通过行为和反馈影响后续判断。",
+      "sources": [{"line_start": 7, "line_end": 7, "quote": "反身性：判断影响行为，行为引来环境反馈，反馈又影响判断；这不等于心想事成。"}]
+    },
+    {
+      "text": "行动受到外部条件约束。",
+      "sources": [{"line_start": 9, "line_end": 9, "quote": "受约束的能动性：选择是输入之一，环境和偶然事件也会参与结果的形成。"}]
+    },
+    {
+      "text": "状态转移公式是一种示意模型。",
+      "sources": [{"line_start": 11, "line_end": 11, "quote": "示意模型：S_{t+1} = F(S_t, A_t, E_t, \\epsilon_t)。S 表示状态，A 表示行动，E 表示环境，\\epsilon 表示扰动，t 表示时点。"}]
+    },
+    {
+      "text": "模型不是精确预测定律。",
+      "sources": [{"line_start": 13, "line_end": 13, "quote": "这只是组织问题的模型，不是能精确预测人生的定律。"}]
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene-01",
+      "narration": ["路径依赖：过去留下的习惯影响后续选择。", "但这不表示只有一种未来。"],
+      "point_refs": [1],
+      "visual": {"type": "image", "prompt": "独立的路径依赖概念页。历史节点影响当前岔路，后续仍有多个分支；不标必胜或必败。"},
+      "transition": "cut"
+    },
+    {
+      "id": "scene-02",
+      "narration": ["反身性：判断影响行为，行为引来反馈，反馈又影响判断。", "这个过程经过行动和环境，不是心想事成。"],
+      "point_refs": [2],
+      "visual": {"type": "diagram", "mermaid": "flowchart LR\n  A[判断] --> B[行为]\n  B --> C[环境反馈]\n  C --> A"},
+      "transition": "fade"
+    },
+    {
+      "id": "scene-03",
+      "narration": ["状态转移：行动、环境和扰动共同参与下一状态的形成。", "这是一种示意模型，不是精确预测人生的定律。"],
+      "point_refs": [3, 4, 5],
+      "visual": {"type": "image", "prompt": "独立公式页。准确保留 S_{t+1} = F(S_t, A_t, E_t, \\epsilon_t)，配符号说明和“示意模型，非精确预测定律”。"},
+      "transition": "cut"
+    }
+  ]
+}

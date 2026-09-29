@@ -2,6 +2,8 @@
 
 Read README.md, ARCHITECTURE.md, docs/engineering/development-principles.md and the active ExecPlan
 before implementation. Preserve the owner's minimal-complexity, fail-fast and single-validation-boundary rules.
+For visual-authoring work, also read skills/mindframe-visual-director/SKILL.md and
+its bounded work record docs/exec-plans/active/ep-001_v1/visual-director.md.
 
 Two crates: core owns contracts; CLI owns I/O. Remotion owns visual templates. Do not generate or execute
 arbitrary React, shell or Python code from a model. Do not commit vault notes, API keys or generated media.
