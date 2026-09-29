@@ -45,6 +45,11 @@ for (const [name, mutate] of [
 
 test('motion primitive snapshots validate', () => {
   const x = valid();
+  x.subtitles = [
+    {scene_id: 's1', utterance_index: 0, start_frame: 0, end_frame: 25, text: '第一句。'},
+    {scene_id: 's1', utterance_index: 1, start_frame: 30, end_frame: 50, text: '第二句。'},
+    {scene_id: 's2', utterance_index: 0, start_frame: 60, end_frame: 110, text: '第三句。'},
+  ];
   x.scenes[0].steps = [
     {
       utterance_index: 0, start_frame: 0, duration_frames: 30,
@@ -74,6 +79,11 @@ for (const [name, mutate] of [
 ]) {
   test(`reject primitive ${name}`, () => {
     const x = valid();
+    x.subtitles = [
+      {scene_id: 's1', utterance_index: 0, start_frame: 0, end_frame: 25, text: '第一句。'},
+      {scene_id: 's1', utterance_index: 1, start_frame: 30, end_frame: 50, text: '第二句。'},
+      {scene_id: 's2', utterance_index: 0, start_frame: 60, end_frame: 110, text: '第三句。'},
+    ];
     x.scenes[0].steps = [
       {
         utterance_index: 0, start_frame: 0, duration_frames: 30,
@@ -95,3 +105,9 @@ for (const [name, mutate] of [
     assert.throws(() => validateMotion(x));
   });
 }
+
+test('reject step without a matching timed cue', () => {
+  const x = valid();
+  x.scenes[0].steps = [{utterance_index: 1, start_frame: 0, duration_frames: 60, elements: []}];
+  assert.throws(() => validateMotion(x));
+});
