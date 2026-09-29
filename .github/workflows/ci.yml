@@ -52,6 +52,8 @@ jobs:
           cargo run -p mindframe-cli -- schema --out output/schemas
       - name: Real render with loopback provider fixtures (no paid API)
         run: python3 scripts/integration_test.py --out output/integration
+      - name: Motion render from chat-material WAV + reviewed cues
+        run: python3 scripts/motion_integration_test.py --out output/motion
       - name: Inspect actual media encoding without weakening acceptance
         if: always()
         run: |

@@ -1,9 +1,9 @@
 //! Local import/export only: no model client, browser, TTS or editor subprocess.
-use std::{fs, io::Cursor, path::{Path, PathBuf}};
+use std::{fs, io::Cursor, path::{Path, PathBuf}, process::Command};
 
 use anyhow::{Context, Result, ensure};
 use image::{ImageFormat, ImageReader, Limits};
-use mindframe_core::{Storyboard, materials::{Assets, Project, csv_cell, timestamp}};
+use mindframe_core::{Scene, Storyboard, Visual, FPS, materials::{Assets, Project, csv_cell, timestamp}};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
@@ -138,6 +138,144 @@ fn copy_materials(bundle: &Bundle, out: &Path) -> Result<()> {
     fs::write(out.join("key-points.md"), bundle.board.points_markdown())?;
     Ok(())
 }
+
+
+fn frame_at_or_after(ms: u64) -> Result<u32> {
+    let frames = ms.checked_mul(u64::from(FPS))
+        .and_then(|value| value.checked_add(999))
+        .context("motion timestamp overflow")? / 1000;
+    ensure!(frames <= u64::from(FPS) * 60 * 60, "motion timestamp exceeds one hour");
+    Ok(u32::try_from(frames)?)
+}
+
+fn emphasis_text(scene: &Scene, screen_text: &str) -> String {
+    if !screen_text.trim().is_empty() {
+        return screen_text.to_owned();
+    }
+    match &scene.visual {
+        Visual::Title { text } => text.clone(),
+        Visual::KeyPoint { title, .. } => title.clone(),
+        _ => String::new(),
+    }
+}
+
+fn motion_input(bundle: &Bundle, preset: &str) -> Result<Value> {
+    let audio = bundle.assets.audio.as_deref().context("motion rendering requires an actual WAV recording")?;
+    ensure!(audio == "audio/narration.wav", "motion audio must use the normalized imported recording");
+    ensure!(!bundle.assets.cues.is_empty(), "motion rendering requires reviewed cues for every narration utterance");
+    let duration_ms = bundle.audio_duration_ms.context("motion rendering requires inspected audio")?;
+    let duration_frames = frame_at_or_after(duration_ms)?;
+    ensure!(duration_frames > 0, "motion recording is empty");
+    let (width, height) = match preset {
+        "bilibili" => (1920, 1080),
+        "douyin" => (1080, 1920),
+        _ => anyhow::bail!("motion preset must be douyin or bilibili"),
+    };
+
+    let mut scenes = Vec::with_capacity(bundle.board.scenes.len());
+    for (index, scene) in bundle.board.scenes.iter().enumerate() {
+        let image = bundle.assets.images.iter().find(|image| image.scene_id == scene.id)
+            .expect("validated complete scene image mapping");
+        let first_cue = bundle.assets.cues.iter().find(|cue| cue.scene_id == scene.id)
+            .expect("validated cues cover every scene");
+        let start_frame = if index == 0 { 0 } else { frame_at_or_after(first_cue.start_ms)? };
+        let end_frame = if let Some(next) = bundle.board.scenes.get(index + 1) {
+            let next_cue = bundle.assets.cues.iter().find(|cue| cue.scene_id == next.id)
+                .expect("validated cues cover every scene");
+            frame_at_or_after(next_cue.start_ms)?
+        } else {
+            duration_frames
+        };
+        ensure!(end_frame > start_frame, "scene {} collapses below one video frame; adjust cue timing", scene.id);
+        scenes.push(json!({
+            "id": scene.id,
+            "start_frame": start_frame,
+            "duration_frames": end_frame - start_frame,
+            "image": image.file,
+            "screen_text": emphasis_text(scene, &image.screen_text),
+        }));
+    }
+
+    let mut subtitles = Vec::with_capacity(bundle.assets.cues.len());
+    for cue in &bundle.assets.cues {
+        let start_frame = frame_at_or_after(cue.start_ms)?;
+        let end_frame = frame_at_or_after(cue.end_ms)?;
+        ensure!(end_frame > start_frame, "subtitle for {} is shorter than one video frame", cue.scene_id);
+        ensure!(end_frame <= duration_frames, "subtitle timing exceeds rendered audio");
+        subtitles.push(json!({
+            "scene_id": cue.scene_id,
+            "utterance_index": cue.utterance_index,
+            "start_frame": start_frame,
+            "end_frame": end_frame,
+            "text": cue.text,
+        }));
+    }
+
+    Ok(json!({
+        "schema_version": 1,
+        "fps": FPS,
+        "width": width,
+        "height": height,
+        "duration_frames": duration_frames,
+        "title": bundle.board.title,
+        "audio": audio,
+        "scenes": scenes,
+        "subtitles": subtitles,
+    }))
+}
+
+pub fn motion(project: &Path, out: &Path, preset: &str, renderer: &Path, scale: f64) -> Result<()> {
+    ensure!(scale.is_finite() && (0.1..=1.0).contains(&scale), "scale must be in 0.1..=1.0");
+    let (_, source) = load_project(project)?;
+    let bundle = load_bundle(&project.join("content"), &source)?;
+    let input = motion_input(&bundle, preset)?;
+
+    let renderer = renderer.canonicalize()
+        .with_context(|| format!("motion renderer directory not found: {}", renderer.display()))?;
+    let script = renderer.join("motion-render.mjs");
+    ensure!(script.is_file(), "motion renderer entrypoint missing: {}", script.display());
+
+    let check = Command::new("node").arg(&script).arg("--check").output()
+        .context("start Node motion renderer check")?;
+    ensure!(check.status.success(), "motion renderer preflight failed: {}", String::from_utf8_lossy(&check.stderr).trim());
+
+    publish(out, |dir| {
+        let assets_dir = dir.join("assets");
+        fs::create_dir_all(&assets_dir)?;
+        for (source, relative) in &bundle.files {
+            if !relative.starts_with("images/") && relative != "audio/narration.wav" {
+                continue;
+            }
+            let destination = assets_dir.join(relative);
+            if let Some(parent) = destination.parent() { fs::create_dir_all(parent)?; }
+            fs::copy(source, destination)?;
+        }
+        write_json(&dir.join("motion-input.json"), &input)?;
+        if let Some(srt) = bundle.assets.subtitles() {
+            fs::write(dir.join("subtitles.srt"), srt)?;
+        }
+
+        let rendered = Command::new("node")
+            .arg(&script)
+            .arg(dir)
+            .arg(scale.to_string())
+            .output()
+            .context("start Node motion renderer")?;
+        ensure!(rendered.status.success(), "motion renderer failed: {}", String::from_utf8_lossy(&rendered.stderr).trim());
+        ensure!(dir.join("motion.mp4").is_file() && dir.join("cover.png").is_file(), "motion renderer did not publish expected media");
+        fs::write(dir.join("README.txt"), concat!(
+            "MindFrame Motion V1\n\n",
+            "This MP4 uses a real imported WAV recording and reviewed sentence cues.\n",
+            "Background rasters receive a subtle deterministic motion treatment; screen_text is a separate emphasis layer.\n",
+            "Subtitles follow supplied sentence timing. This does not prove semantic accuracy, pronunciation quality, or word-level alignment.\n"
+        ))?;
+        Ok(())
+    })?;
+
+    println!("rendered motion video to {}; preset={preset}, scale={scale}; no model API was called", out.display());
+    Ok(())
+}
+
 
 pub fn init(input: &Path, out: &Path, preset: String) -> Result<()> {
     let source = read_source(input)?;
