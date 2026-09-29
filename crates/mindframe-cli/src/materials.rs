@@ -3,7 +3,7 @@ use std::{fs, io::Cursor, path::{Path, PathBuf}, process::Command};
 
 use anyhow::{Context, Result, ensure};
 use image::{ImageFormat, ImageReader, Limits};
-use mindframe_core::{Scene, Storyboard, Visual, FPS, materials::{Assets, MotionPlan, MotionElement, Project, csv_cell, timestamp}};
+use mindframe_core::{Scene, Storyboard, Visual, FPS, materials::{Assets, MotionPlan, Project, csv_cell, timestamp}};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
