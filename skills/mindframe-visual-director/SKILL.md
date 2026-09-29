@@ -134,3 +134,36 @@ visual-plan.md、review.md及另外制作的动态背景是外部工作材料，
 [逐页/逐镜工作表](references/page-plan.md) 随 CLI 请求完整内嵌。
 [图文示例](examples/walkthrough.md) 与 [合成测试原文](examples/source.md) 用于演示协议，不是用户知识库或实际生图验收。
 [参考与差异](references/sources.md) 仅记录参考思路，不是运行依赖。
+
+
+## 8. Motion Primitives：逐句增加信息，不开放任意动画代码
+
+当用户要“口播一句，画面增加/替换一个元素”时，除 storyboard/assets 外可生成可选
+`motion.json`。它由 CLI 生成的 Motion Schema 约束；没有当前 Schema 时不得凭记忆猜字段。
+
+Motion 采用**状态快照**而不是命令脚本：每个 step 绑定一个 narration 的零基
+`utterance_index`，描述这句话开始以后屏幕上应存在的完整元素集合。第一步必须从
+`narration[0]` 开始；后续 step 索引严格递增。相同 id 在下一步继续出现表示同一语义对象，
+value/text 改变就是 replace；新 id 是 appear；`emphasis: true` 是 highlight；从下一状态消失
+就是退出。具体淡入/替换动效由固定 renderer 控制，不让模型写 CSS/React/JS。
+
+固定原语：
+
+| type | 用途 | 关键约束 |
+|---|---|---|
+| text | 一句核心论点、结果 | 短文本，可强调 |
+| stat | 人物/时间/数字/收益 | label + value，同 id 更新 value |
+| relation | 简单箭头关系 | from/to 必须引用同一步已有非 relation id |
+| matrix | 小型收益矩阵/决策表 | 2–4 列、1–4 行，不塞长文 |
+| formula | 公式与一步解释 | 公式以准确显示字符串保存；highlight 必须是原字符串子串 |
+
+slot 只有 top / left / center / right / bottom。不要加入像素坐标、任意字体、任意颜色、任意
+animation 字段。布局和动效由 MindFrame 的固定知识讲解模板负责，保持内容协议稳定。
+
+例如“你和小王”场景可分四个 narration step：双方18:00；小王变19:00；老板对小王+1并出现
+relation；双方都变19:00并出现“相对优势归零”。收益矩阵单独用 matrix；状态方程单独用 formula。
+这比一张复杂海报更符合“每2–4秒一个新信息”的知识讲解节奏。
+
+Motion Primitives 仍要求实际 WAV 与完整 cues 才能渲染。step 的 narration 索引是语义触发，
+不是凭文字猜出来的秒数。需要一个句子内部更细的节奏时，优先把 narration 拆成更短、自然的
+分句；V1 不提供任意毫秒事件或词级动画。
