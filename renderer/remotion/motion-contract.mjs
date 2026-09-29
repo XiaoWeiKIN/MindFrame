@@ -101,5 +101,10 @@ export function validateMotion(t) {
     cueKeys.add(key);
     previousEnd = cue.end_frame;
   }
+  for (const scene of t.scenes) {
+    for (const step of scene.steps ?? []) {
+      if (!cueKeys.has(`${scene.id}:${step.utterance_index}`)) fail('step without matching subtitle cue');
+    }
+  }
   return {durationInFrames: t.duration_frames};
 }
