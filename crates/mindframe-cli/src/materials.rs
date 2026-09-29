@@ -148,7 +148,15 @@ pub fn init(input: &Path, out: &Path, preset: String) -> Result<()> {
         fs::write(dir.join("source.md"), &source)?;
         let numbered = source.lines().enumerate().map(|(i, line)| format!("{}: {line}\n", i + 1)).collect::<String>();
         fs::write(dir.join("source.numbered.txt"), numbered)?;
-        let request = format!("{}\n\n目标布局：{}。\n\n## Storyboard JSON Schema\n```json\n{}\n```\n\n## Assets JSON Schema\n```json\n{}\n```\n", include_str!("../../../prompts/chat-authoring.md"), project.preset, serde_json::to_string_pretty(&schemars::schema_for!(Storyboard))?, serde_json::to_string_pretty(&schemars::schema_for!(Assets))?);
+        // Embed the canonical skill and worksheet so an installed CLI needs no repository files at runtime.
+        let request = format!(
+            "{}\n\n目标布局：{}。\n\n## 视觉导演工作流（完整内嵌）\n{}\n\n## 逐页工作表（完整内嵌）\n{}\n\n## Storyboard JSON Schema\n```json\n{}\n```\n\n## Assets JSON Schema\n```json\n{}\n```\n",
+            include_str!("../../../prompts/chat-authoring.md"), project.preset,
+            include_str!("../../../skills/mindframe-visual-director/SKILL.md"),
+            include_str!("../../../skills/mindframe-visual-director/references/page-plan.md"),
+            serde_json::to_string_pretty(&schemars::schema_for!(Storyboard))?,
+            serde_json::to_string_pretty(&schemars::schema_for!(Assets))?
+        );
         fs::write(dir.join("chat-request.md"), request)?;
         Ok(())
     })?;

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "images": [
+    {"scene_id": "scene-01", "file": "images/scene-01.png", "screen_text": ""},
+    {"scene_id": "scene-02", "file": "images/scene-02.png", "screen_text": ""},
+    {"scene_id": "scene-03", "file": "images/scene-03.png", "screen_text": ""}
+  ]
+}

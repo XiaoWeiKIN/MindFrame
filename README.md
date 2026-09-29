@@ -56,6 +56,17 @@ MindFrame 不验证图片来自哪个模型，只验证实际 PNG/JPEG/WebP 文�
 可复用的作者指导见 [prompts/chat-authoring.md](prompts/chat-authoring.md)；
 [作者 Skill](skills/mindframe-author/SKILL.md) 是仓库内可移植说明，不代表已经安装到你的聊天环境。
 
+## 视觉导演：保留精华，逐页成图
+
+[mindframe-visual-director](skills/mindframe-visual-director/SKILL.md) 把原文概念、金句、公式与
+论证关系转成逐页视觉计划，使用P0/P1/P2文字层级和共享风格，再由实际图像工具逐页生成。
+图文成品与剪辑配图区分处理；独立页面不能被一张九宫格总览替代，原文限定不能被抓眼标题抹掉。
+
+新版 `init` 已将完整导演说明和逐页工作表内嵌到 `chat-request.md`，不要求另装第三方Skill。
+已有项目的请求不会自动更新；重新安装CLI后用新输出目录初始化，或将新说明补充给聊天助手。
+[使用说明与边界](docs/visual-director.md)涵盖独立Skill使用、示例与文件交接。
+导演计划和审图记录是另存的Markdown，不新增JSON字段，也不被现有import/export自动复制。
+
 ## 编辑源与图片映射
 
 `content/storyboard.json` 是唯一的口播/观点编辑源；`script.md` 和 `key-points.md`
