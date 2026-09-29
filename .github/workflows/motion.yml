@@ -1,0 +1,53 @@
+name: MindFrame Motion
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  motion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install media tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak fonts-noto-cjk
+          npm --prefix renderer/remotion install
+      - name: Compile and test
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          cargo build --workspace
+          npm --prefix renderer/remotion run check
+          npm --prefix renderer/remotion test
+      - name: Motion acceptance
+        run: |
+          if [ -f scripts/motion_smoke.py ]; then
+            python3 scripts/motion_smoke.py --out output/motion
+          else
+            echo 'Bootstrap only: Motion implementation is not present yet.'
+          fi
+      - name: Retain exact source and executable
+        if: always()
+        run: |
+          mkdir -p output/workspace
+          git rev-parse HEAD > output/workspace/revision.txt
+          git archive --format=tar.gz -o output/workspace/source.tar.gz HEAD
+          if [ -f target/debug/mindframe ]; then cp target/debug/mindframe output/workspace/; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mindframe-motion-verification
+          path: |
+            output/
+            Cargo.lock
+            renderer/remotion/package-lock.json
+          retention-days: 7
