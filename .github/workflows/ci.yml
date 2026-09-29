@@ -52,6 +52,12 @@ jobs:
           cargo run -p mindframe-cli -- schema --out output/schemas
       - name: Real render with loopback provider fixtures (no paid API)
         run: python3 scripts/integration_test.py --out output/integration
+      - name: Inspect actual media encoding without weakening acceptance
+        if: always()
+        run: |
+          if [ -d output/integration ]; then
+            find output/integration -name '*.mp4' -print -exec ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,pix_fmt,color_range,width,height -of json {} \;
+          fi
       - name: Save inspectable test media and dependency resolution
         if: always()
         uses: actions/upload-artifact@v4

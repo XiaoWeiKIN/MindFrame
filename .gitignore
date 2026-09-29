@@ -1,5 +1,9 @@
 /target/
 /output/
+/projects/
+/dist/
+/chat-output/
+.mindframe-*/
 **/node_modules/
 .env
 .env.*
