@@ -1,48 +1,46 @@
 # MindFrame
 
-**在聊天里创作，在本地整理，交给剪映剪辑。**
+**把知识创作整理成剪映素材包。配音、字幕、转场、特效与最终成片在剪映完成。**
 
-你把文档交给 ChatGPT，审改观点、口播和分镜，再生成图片。
-MindFrame 接收这些**实际文件**，校验场景对应关系，导出标准素材和剪辑清单。
-主流程不调用模型 API，不需要 API Key，也不要求 Node、FFmpeg 或剪映已安装。
-首次编译仍需下载 Rust 依赖。
+你提供文档，在聊天中审改口播、分镜、概念、论点和公式，再生成真正需要的背景与插图。
+MindFrame 校验实际文件并整理剪辑交接，不把程序测试片当发布作品，也不默认生成 MP4。
 
 ```mermaid
 flowchart LR
-  A[所选文档] --> B[聊天中提炼观点和写口播]
-  B --> C[分镜与实际生成的图片]
-  C --> D[保存文件到本机]
-  D --> E[MindFrame 导入与校验]
-  E --> F[标准素材包]
-  F --> G[剪映人工剪辑]
+    A[选定原文] --> B[聊天创作：口播 / 重点文字 / 实际图片]
+    B --> C[MindFrame 导入与校验]
+    C --> D[剪映素材包]
+    D --> E[剪映：配音 / 字幕 / 图层 / 转场 / 成片]
 ```
 
-## 安装和主流程
+## 安装与主流程
 
-需要支持 edition 2024 的 Rust。在仓库根目录执行：
+需要支持 edition 2024 的 Rust。素材主流程不需要模型 API Key、Node、FFmpeg、录音、时间点或剪映安装。
+第一次编译仍需下载 Rust 依赖。在仓库根目录执行：
 
 ```bash
-cargo install --path crates/mindframe-cli
+cargo install --path crates/mindframe-cli --force
 mindframe init /path/to/article.md --out projects/article --preset douyin
 ```
 
-`init` 只读取这一篇 UTF-8 Markdown（上限64 KiB），生成原文快照、带行号副本和
-`chat-request.md`。把请求文件与原文交给聊天助手，按其中的 Schema 创作。
-PDF/Word 可以先在聊天中整理成一份忠实的 Markdown 快照；CLI 本身不解析 PDF/Word。
+`init` 接受一篇 UTF-8 Markdown（上限64 KiB），生成原文快照、行号副本和 `chat-request.md`。
+将 `source.md` 和请求发到聊天中。请求完整内嵌 [Visual Director](skills/mindframe-visual-director/SKILL.md)、
+工作表及当前真实 Schema。已有项目不会自动更新旧请求；需要新版指导时初始化新目录或补充 Skill 文件。
+PDF/Word 需先整理成忠实的 Markdown；CLI 不直接解析它们。
 
-聊天助手负责生成 `storyboard.json`、`assets.json` 与实际图片。保存到本地，例如：
+聊天完成后保存实际文件，最小输入仍只有两份 JSON 和真实主图：
 
 ```text
 chat-output/
 ├── storyboard.json
 ├── assets.json
-├── motion.json          # 可选：逐句 Motion Primitives
-└── images/
-    ├── scene-01.png
-    └── scene-02.webp
+├── images/
+│   └── background.png
+├── layers.json          # 可选：独立叠加图片清单
+├── overlays/            # 可选：layers.json 明确引用的真实图片
+│   └── formula.png
+└── motion.json          # 可选：逐句剪辑指导，不代表必须渲染
 ```
-
-然后运行：
 
 ```bash
 mindframe import projects/article --from ./chat-output
@@ -50,135 +48,126 @@ mindframe validate projects/article
 mindframe export projects/article --target jianying --out dist/article
 ```
 
-**这不是让 CLI 直接调用你的聊天会话。** 它不读取 Cookie、不登录 ChatGPT、不把订阅
-额度当作 API 额度；创作发生在聊天中，本地命令处理保存下来的文件。
-图像模型由聊天环境决定；只有工具明确提供型号选择时才能保证使用指定型号。
-MindFrame 不验证图片来自哪个模型，只验证实际 PNG/JPEG/WebP 文件及其场景映射。
-可复用的作者指导见 [prompts/chat-authoring.md](prompts/chat-authoring.md)；
-[作者 Skill](skills/mindframe-author/SKILL.md) 是仓库内可移植说明，不代表已经安装到你的聊天环境。
+主流程到这里结束。没有录音、没有 cues 也能生成完整素材包，不为了导出素材要求先完成配音。
 
-## 视觉导演：保留精华，逐页成图
+## 导出后拿什么去剪辑
 
-[mindframe-visual-director](skills/mindframe-visual-director/SKILL.md) 把原文概念、金句、公式与
-论证关系转成逐页视觉计划，使用P0/P1/P2文字层级和共享风格，再由实际图像工具逐页生成。
-图文成品与剪辑配图区分处理；独立页面不能被一张九宫格总览替代，原文限定不能被抓眼标题抹掉。
+```text
+dist/article/
+├── narration.txt        # 全片纯口播：不加标题、场景 ID、Markdown 注释
+├── scripts/             # 001-scene-id.txt：逐镜纯口播
+├── screen-text/         # 同编号：可复制的后期重点文字，不是字幕
+├── images/              # 主画面，按场景编号
+├── overlays/            # 有独立叠加图片才出现，原字节保留
+├── cover.png            # 可选；扩展名以实际素材为准
+├── edit-guide.md         # 总制作指南
+├── edit-notes/           # 逐镜文件、画面意图和口播触发说明
+├── shot-list.csv         # 保留原七列格式及场景顺序
+├── subtitles.txt         # 无时间轴的字幕文本
+├── subtitles.srt         # 仅有实际录音与完整已核对 cues 时生成
+├── script.md             # 审稿版，不建议整份直接拿去配音
+├── key-points.md
+├── storyboard.md         # 与 edit-guide.md 相同的派生说明，保留旧文件名
+├── storyboard.json
+├── assets.json
+├── layers.json           # 可选，路径已正规化
+├── motion.json           # 可选，保留原编辑计划
+├── material-report.json
+└── README.txt
+```
 
-新版 `init` 已将完整导演说明和逐页工作表内嵌到 `chat-request.md`，不要求另装第三方Skill。
-已有项目的请求不会自动更新；重新安装CLI后用新输出目录初始化，或将新说明补充给聊天助手。
-[使用说明与边界](docs/visual-director.md)涵盖独立Skill使用、示例与文件交接。
-导演计划和审图记录是另存的Markdown，不新增JSON字段，也不被现有import/export自动复制。
+先看 `edit-guide.md` 和素材报告。将图片分别作为素材导入，用纯口播文本准备声音；配音定稿后再安排字幕，
+按逐镜说明放置重点与附加图。`screen-text/` 只包含用户明确提供的后期叠字，空文件表示未提供；不会从
+图片上猜字或自动把标题再叠一次。
 
-## 编辑源与图片映射
+**这是素材包，不是剪映原生工程。** JSON/CSV/Markdown 不会自动排轨；ZIP 也不能一键打开为剪映工程。
+具体导入、配音或字幕入口依用户版本核验，本项目没有宣称完成你的剪映 UI 验收。
 
-`content/storyboard.json` 是唯一的口播/观点编辑源；`script.md` 和 `key-points.md`
-只是导出预览。改稿后重新 `export` 到新目录，不要只编辑预览文件。
-`content/assets.json` 维护真实文件、屏幕文字、可选录音与时间点。
+## 单一编辑源与分层
+
+`content/storyboard.json` 是口播/观点的唯一编辑源；`content/assets.json` 维护主图和 `screen_text`。
+派生 TXT/Markdown 不是另一套编辑源。改 JSON 后重新导出到新目录，不能只改旧 `script.md`。
+
+每个 scene 必须有一张显式映射的主图；同一真实背景可以被多个 scene 复用。支持 PNG/JPEG/WebP，
+每文件最多50 MiB，边长不超过8192像素、解码预算256 MiB。图片扩展名必须匹配实际字节。
+导入不拉伸、裁切、重画或“修复”公式，只有元数据与真实文件校验。
+
+独立插图、公式图、关系图通过可选 `layers.json` 交接，不向旧 `assets.json` 添加未知字段。
+下例仅展示格式，引用的实际图片必须先存在：
 
 ```json
 {
   "schema_version": 1,
-  "images": [
-    {"scene_id": "scene-01", "file": "images/scene-01.png", "screen_text": "这一幕的关键词"},
-    {"scene_id": "scene-02", "file": "images/scene-02.webp", "screen_text": "第二个概念"}
+  "overlays": [
+    {
+      "scene_id": "scene-01",
+      "id": "state-formula",
+      "file": "overlays/formula.png",
+      "label": "状态转移公式；已逐符号校对",
+      "utterance_index": 1
+    }
   ]
 }
 ```
 
-每个场景必须显式对应一张图片；不根据文件排序猜测。支持真实 PNG、JPEG、WebP，
-单张上限50 MiB、边长8192像素、解码分配上限256 MiB。导入保留原图字节，统一文件命名，
-不自动裁剪、拉伸或重生成。文件扩展名必须与内容相符，图片提示词不是图片。
-目标比例与原图不一致时，应在剪映中裁切/留边；`material-report.json` 记录实际尺寸。
+`utterance_index` 可省略；存在时必须对应该 scene 的真实口播索引，不能把整篇句号数量当索引。
+每镜最多12层，id 在镜头内唯一。透明性按实际像素报告，不透明图片也可作为独立图解；
+**独立 PNG 不是剪映原生文字层**，改公式仍需原始文本与重新排版。
 
-项目格式：
+## motion.json 现在主要用于剪辑指导
+
+保留原有 text/stat/relation/matrix/formula 状态快照格式。每步绑定 narration 的零基索引，
+用同一 id 表达同一对象。`export` 把它译成可读的“新增、保持、更新、移除”说明，例如：
 
 ```text
-projects/article/
-├── project.json
-├── source.md
-├── source.numbered.txt
-├── chat-request.md
-└── content/
-    ├── storyboard.json
-    ├── assets.json
-    ├── script.md
-    ├── key-points.md
-    ├── images/
-    ├── cover.png            # 可选；按实际格式保留后缀
-    └── audio/narration.wav  # 可选
+讲到 narration[1] 时：接着调整一次行动。
+保持 you，不要重复入场。
+更新 wang：18:00 → 19:00，并标为重点。
 ```
 
-## 口播稿不等于配音，文本不等于定时字幕
+指导可在无录音时导出：没有秒数，只标语义触发。配音后在剪映设置实际入场、停留和动效。
+不强制每2–4秒切一次，不接受模型生成的 JavaScript/CSS、任意像素坐标或可执行动画脚本。
+无 motion.json 的简单项目同样受支持。
 
-默认仅需文字和图片。没有录音/时间点时导出 `subtitles.txt`，不生成假的 SRT，
-`shot-list.csv` 的时间列留空。你可以在剪映里自行录音、配音和制作字幕。
+## 素材报告不是发布证书
 
-已有录音时在 assets.json 指定 `audio` 相对路径：仅支持 PCM 16位单/双声道 WAV，
-上限256 MiB且不超过一小时。只有录音但没有 cues，仍不自动产生时间戳。
-需生成 SRT 时，附与录音匹配且人工核对的逐句 cues，例如：
+`validate` 与 `material-report.json` 报告主图、封面、叠加图的尺寸和真实透明性；低于参考画布、比例不符、
+不透明叠加图、未提供封面会提示复核，而不是擅自放大或生成占位素材。
 
-```json
-{
-  "scene_id": "scene-01",
-  "utterance_index": 0,
-  "text": "与这个场景 narration[0] 完全一致的口播。",
-  "start_ms": 200,
-  "end_ms": 3400
-}
-```
+参考画布：douyin 1080×1920、bilibili 1920×1080，是项目工作约定，不是已核实的平台要求。
+小图标不按全屏尺寸判错。就算文件通过，也没有自动证明图片美感、文字正确、公式语义、手机阅读或发布效果。
 
-cues 必须按分镜/句子顺序覆盖全部口播且不重叠；时间不能超过实际 WAV 长度。
-程序检查文字一致性和时间范围，**不声称已经听懂并验证语音对齐**。
-改口播后旧 cues 会被拒绝，应重新对齐，或明确移除旧录音和 cues 回到未配音素材状态。
+[素材包说明](docs/editor-pack.md) 和 [视觉创作工作流](docs/visual-director.md) 说明文件与职责。
+工作流固定“背景层 / 重点层 / 口播层 / 字幕层”，沿用可替换的 Ocean Depth / 深海星辰风格；
+以文字为主，不为了每个概念重新做密集海报。
 
-## 剪映素材包
+## 可选录音与真实字幕
 
-导出包含图片、可选封面/录音、口播稿、关键信息、分镜说明、`shot-list.csv`、
-`subtitles.txt`、有真实输入时间点时的 `subtitles.srt`，以及导入说明和素材报告。
+正常素材包只需要文字与图片。有实际 PCM16 单/双声道 WAV（最多256 MiB、一小时）时，可在 assets.json
+提供 audio；只有声音仍不自动推算字幕。完整 cues 须精确匹配每个 narration、顺序不重叠且在录音范围内。
+满足这些结构检查后才导出 SRT，不代表已实听核对。
 
-**不是剪映原生草稿，不会自动排轨、设置转场或发布抖音。**
-分镜中的 cut/fade/slide 是人工剪辑建议。CSV/Markdown/JSON 是说明文件，不是可直接
-加载的剪映时间线。SRT 的导入入口需在你使用的编辑器版本中确认，本项目没有完成该 UI 验收。
+更换配音、剪句或改语速后，旧 SRT 必须重做。成片 MP4 已烧入的字幕不能靠替换 SRT 恢复成编辑图层。
 
-原文完整快照、聊天请求、配置和未引用文件不会复制到导出包；选取的原文引文仍保留在关键点中。
-导入/导出拒绝覆盖已有目录。缺图、坏图、错误引用、路径穿越、素材符号链接、损坏录音会明确失败。
-使用同目录临时工作区完成后再发布，失败不留下半份 content/ 或导出包；不要并发写同一项目。
-再次导入整批素材应创建新项目；局部修订可直接编辑现有 content/ 后重新校验和导出。
-ZIP 自动解包、整库扫描、网页抓取、自动配音和原生剪映工程都不属于这条主流程。
+## 已有视频功能仅保留为可选预览
 
-## Motion：从已对齐素材直接生成知识讲解 MP4
+`mindframe preview` 只用于内部结构检查，旧 `motion` 是兼容别名，原 `motion.mp4` 输出名保留。
+它不参与素材主流程，也不会从无录音文本生成假配音或时长。输出带 `PREVIEW.txt` 和
+`preview-report.json`（publish_ready=false）。含 layers.json 的包目前不支持预览合成，明确报错而非静默丢层。
 
-聊天素材项目如果已经有**实际 WAV 录音**和覆盖全部口播的**已核对逐句 cues**，可以直接生成轻量知识讲解视频：
+使用方法和依赖见 [可选预览](docs/preview.md)。旧 `plan/build/produce/render/demo` 路线保留，
+不再作为产品主线；部分命令会调用配置的收费 API，不能自动从素材路径跳过去。
+[旧路线文档](docs/legacy-video.md) 和历史媒体验证保留，不能把本次收敛当成依赖风险已修复。
 
-```bash
-mindframe motion projects/article \
-  --out dist/article-motion \
-  --preset douyin \
-  --renderer renderer/remotion
-```
+## 校验与隐私边界
 
-Motion V1 使用每个 scene 的真实图片作为背景，自动做低干扰的缓慢缩放/漂移；`screen_text` 作为独立重点层，逐句字幕严格使用已提供 cue 时间，整条旁白使用实际导入的 `audio/narration.wav`。没有录音或完整时间点会直接失败，不按字数猜时长。
+素材导入/导出拒绝覆盖已有目录，失败不留下半份输出；不并发写同一项目。
+路径穿越、符号链接、损坏文件、不完整映射与未知字段会明确失败。
+完整原文、聊天请求、API 配置、任意工作笔记和预览 MP4 不被导出；选取的原文引文仍在关键点文件中。
+visual-plan.md、review.md 与额外动态背景须单独保存，不自动打包私有笔记。
 
-输出包含 `motion.mp4`、`cover.png`、`motion-input.json` 与 `subtitles.srt`。当前支持静态背景产生轻运动，不导入外部 MP4 背景，不做词级高亮，也不是剪映原生工程。公式如需精确数学排版，应在 `screen_text`/后期排版中提供准确文本并人工检查；Motion V1 不解释 LaTeX。
-
-可选的 `motion.json` 用于逐句动态图解。它不是任意动画 DSL，而是随 narration 句子切换的完整视觉状态快照。固定原语：
-
-- `text`：核心论点/结果；
-- `stat`：人物、时间、数字或收益；
-- `relation`：两个元素之间的简单关系；
-- `matrix`：小型收益矩阵/决策表；
-- `formula`：公式显示字符串和一个可选高亮子串。
-
-同 id 在下一步继续出现表示同一个对象；值改变表现为替换，新增 id 淡入，`emphasis` 提示重点。布局只使用 top/left/center/right/bottom 五个 slot，不接受 JavaScript、CSS、任意坐标或任意动画命令。没有 `motion.json` 的旧项目继续使用 screen_text 简单重点层。
-
-## 可选的旧 API / Remotion 路线
-
-之前的 `plan / build / produce / render / demo` 仍保留，用于旧的根目录
-`source.md + storyboard.json + timeline.json` 项目，不是新素材格式的隐式后端。
-它们需要各自的模型配置、Node/Remotion/FFmpeg 等依赖；API 命令可能产生费用。
-新格式执行 produce/render 会提前报错，不会悄悄调用收费服务。
-说明见 [docs/legacy-video.md](docs/legacy-video.md)。
-
-## 验收
+MindFrame 不连接聊天会话、不抓 Cookie、不把订阅当 API 额度。图像由当前聊天工具生成；
+只有工具暴露型号选择时才能保证具体型号，文件存在不证明由某个模型生成。
 
 ```bash
 cargo clippy --workspace --all-targets -- -D warnings
@@ -187,10 +176,7 @@ cargo build --workspace
 python3 scripts/chat_smoke.py --out output/chat-smoke
 ```
 
-核心测试清空环境变量与 PATH 后启动实际 CLI，检查无密钥导入/导出、图片字节保留、
-WAV与手工时间点、错误输入及非覆盖行为。冒烟素材是程序生成的测试 PNG 与静音 WAV，
-**不是 GPT 生成图片、真实配音或艺术质量评估**。
-
-完整旧视频验收仍使用 `python3 scripts/check.py` 和
-`python3 scripts/integration_test.py --out output/<new-directory>`。
-研发状态见 [EP-001](docs/exec-plans/active/ep-001_v1/EXECPLAN.md)。
+主流程测试使用无密钥、空 PATH 的实际 CLI，合成图和静音 WAV 只证明协议行为。
+原有 `scripts/check.py`、legacy 与 Motion 媒体 CI 保留，不用删断言取得通过。
+当前工作记录：[editor-materials-first](docs/exec-plans/active/ep-001_v1/editor-materials-first.md)；
+父 [EP-001](docs/exec-plans/active/ep-001_v1/EXECPLAN.md) 保持 active，不伪造正式归档。

@@ -1,112 +1,82 @@
 # MindFrame Architecture
 
-## Primary boundary: chat-authored materials
+## Product boundary: editor material pack
 
-The authoring environment owns understanding, narration, scene planning and image generation.
-MindFrame owns local file validation and export. It is not a ChatGPT session/API proxy.
+The authoring host owns interpretation, source-faithful narration, emphasis copy and actual image generation.
+MindFrame owns local validation and editor handoff. Jianying is the intended place for voice, caption timing,
+transitions, effects and final editing. No model call, audio, Node or FFmpeg is required by the primary CLI path.
 
 ```mermaid
 flowchart LR
-  Source[Explicit Markdown snapshot] --> Chat[Chat authoring and image tool]
-  Chat --> Files[Saved storyboard + asset manifest + actual images]
-  Files --> Import[Rust import]
-  Import --> Project[project.json + source.md + content/]
-  Project --> Export[Rust export]
-  Export --> Editor[Standard material pack for manual editing]
+  Source[Explicit document] --> Chat[Authoring + actual images]
+  Chat --> Import[Rust import and validation]
+  Import --> Pack[Media + plain copy + semantic editing notes]
+  Pack --> Editor[Jianying production]
 ```
 
-`crates/mindframe-core/src/lib.rs` retains Storyboard v1 and the legacy Timeline contract unchanged.
-`materials.rs` adds Project/Assets/Cue contracts, portable paths, exact scene mapping, supplied-timing
-validation and subtitle/CSV text helpers. Storyboard narration remains the only editable script authority.
-Schemas are generated from Rust types; semantic quote entailment still needs human review.
+## Contracts and ownership
 
-`crates/mindframe-cli/src/materials.rs` owns local filesystem operations, real PNG/JPEG/WebP decoding,
-PCM 16-bit WAV inspection and staged directory publication. The init/import/validate/export path never
-calls Config, HTTP, TTS, Node or FFmpeg. Image paths are explicit, normalized on import and copied
-byte-for-byte. Only manifest-listed materials are copied. Complete source snapshots and configuration
-are not included in exports; selected source quotations intentionally remain in key-points.md.
+Two Rust crates remain. core/lib.rs owns unchanged Storyboard/legacy Timeline v1; core/materials.rs owns
+unchanged Project/Assets/Cue/MotionPlan v1. core/editor.rs adds optional Layers v1 plus pure editorial text
+formatting. Layers is a separate manifest, not new fields smuggled into the strict Assets schema.
 
-The opt-in `motion` command reuses the same validated project and invokes the local Node/Remotion
-renderer only after a real recording and complete reviewed cues exist. It does not call a model API,
-TTS provider, ASR service or the legacy paid pipeline.
+A base image remains mandatory per scene. Layers registers additional actual rasters with scene ID, per-scene
+layer ID, file, label and optional narration index. There are at most12 overlays per scene. Core validates
+portable paths, IDs, scene membership and index bounds. This is not an animation language or editable editor
+object model. Normalizing the manifest never invents image layers from one flat file.
 
-Project JSON distinguishes the new format from old root-level Storyboard/Timeline projects. A broken
-project marker fails rather than falling back. init creates a source snapshot and authoring handoff;
-import publishes content/ once; validate rechecks current edit sources; export regenerates previews
-and writes to a fresh directory. No independent import-script editing authority, provider traits,
-background jobs, dependency injection framework or persistent database is introduced.
+Storyboard narration remains the sole script edit authority. assets.screen_text holds explicit later overlays,
+not automatically inferred image text. Optional motion.json represents full visual states at narration indices;
+editor export describes add/keep/update/remove and preserves formula/matrix/relation content without audio.
+Only explicit preview rendering translates reviewed cue times to frames.
 
-## Timing and editor boundary
+## Primary I/O
 
-Missing recording/timings are valid. Export plain subtitles.txt and leave CSV time cells blank.
-Optional user-supplied cues must exactly cover ordered narration items with matching text,
-non-overlapping positive millisecond ranges and an end within the actual recording duration.
-Only then export SRT. These checks do not verify speech alignment or authorship.
+cli/materials.rs handles init/import/validate/export, actual PNG/JPEG/WebP decoding, PCM16 WAV inspection,
+path/symlink controls and atomic fresh-directory publication. cli/editor_export.rs derives narration.txt,
+scripts/, screen-text/, edit-guide.md, edit-notes/, existing shot-list.csv and the material report.
+These modules never invoke Node, FFmpeg, TTS, ASR or an editor. They use existing serialization/filesystem
+helpers only. No new dependency, provider framework, database, background job or paid service is added.
 
-The export is not a native Jianying draft or automatic timeline. CSV and Markdown document placement
-and transition intent; users create the actual editor tracks. Input image dimensions are reported,
-not silently stretched to a platform preset. No claim is made about a tested editor UI/version.
+Imported bytes are preserved. Canonical images/overlays/cover/audio paths are written back into their manifests.
+Only contract-listed media is copied, not source snapshots, API configs, arbitrary working notes or preview
+videos. Selected source quotations intentionally remain in key-points.md. Exports are deterministic derivatives
+of current JSON; stale script.md is not read. Existing file names, seven CSV columns and plain subtitle fallback
+remain compatible. Optional layers.json is ignored only when absent; malformed files fail, not fall back.
 
-## Motion rendering boundary
+## Inspection is not visual acceptance
 
-Motion V1 is a separate local rendering boundary for chat-material projects. Rust derives an internal
-`motion-input.json` from already validated Storyboard/Assets data. Scene images remain raster assets;
-`screen_text` is a separate emphasis layer; the imported `audio/narration.wav` is the single audio track;
-sentence subtitles use supplied cue boundaries. Missing audio or cues fails before rendering.
+The report includes actual dimensions and observed transparent pixels. Reference-canvas/ratio warnings apply
+to base images and cover, not small overlay graphics. Opaque overlays and missing optional cover are review
+warnings, not hard failure. Reference canvases are project design assumptions, not platform certification.
+Nothing is automatically stretched, upscaled, flattened or declared artistic/publish-ready.
 
-The internal renderer contract requires 30fps, contiguous scene coverage, safe relative image/audio paths,
-non-overlapping subtitles inside their owning scenes, bounded duration and known dimensions. Remotion
-adds deterministic low-interference pan/zoom to each background, renders emphasis text independently,
-and produces H.264/AAC MP4 plus a still cover. Output is staged and published only after successful media
-generation.
+No audio/cues means untimed text and semantic triggers, never invented SRT. Supplied cues must match every
+narration, be positive/non-overlapping and end within the actual WAV. File/timing validation is not listening,
+forced alignment or correctness proof. Voice or speed changes invalidate the old synchronization.
 
-Motion V1 deliberately does not infer cue timing, perform speech recognition, accept MP4 background loops,
-provide word-level karaoke, expose an arbitrary animation DSL, or emit a native Jianying project. Those
-capabilities require separate contracts and verification rather than weakening the current timing boundary.
+## Optional preview and legacy code
 
-## Motion Primitives boundary
+cli/preview.rs isolates the former Motion orchestration. `preview` is the canonical CLI name; `motion` remains
+an alias. It retains the former renderer, file names and timing requirements, adds explicit PREVIEW.txt and
+preview-report.json (publish_ready=false), and is never invoked by export. Layers are not composited by this
+old preview; fail before launching Node rather than silently omit them. The renderer itself is not extended.
 
-An optional `content/motion.json` adds sentence-paced visual states without changing Storyboard or Assets.
-Core owns the strict `MotionPlan` contract. A scene plan contains ordered steps bound to zero-based
-`narration` indices; frame timing is derived only from the matching reviewed cue. Each step is a complete
-state snapshot, not an executable action script.
+The separate root-level legacy project format and pipeline.rs remain compatible. API production is still
+explicitly opt-in and may incur charges; there is no automatic fallback from material export. Existing media
+CI is retained as regression protection, not a promise of final publishing quality.
 
-The supported visual vocabulary is deliberately small: text, stat, relation, matrix and formula. Placement is
-limited to top/left/center/right/bottom slots. Reusing an element id preserves semantic identity across steps;
-changed values are rendered as replacements, new ids enter, omitted ids exit, and emphasis marks the current
-focus. The renderer keeps unchanged elements visually stable across step boundaries so a sentence can add one
-piece of information without flashing the whole composition.
+## Failure, limits and verification
 
-Rust rejects unknown fields, invalid scene/utterance references, duplicate ids, relations whose endpoints are
-not present in the same state, malformed small matrices and formula highlights that are not literal substrings
-of the displayed formula. The renderer repeats these safety/shape checks at its external JSON boundary and
-requires every timed step to have a matching subtitle cue. No JavaScript, CSS, React source, pixel coordinates
-or arbitrary animation commands are accepted from authored content.
+JSON limit2MiB; source64KiB; each raster50MiB, 8192px/side, decoder budget256MiB; WAV256MiB/one hour.
+These are product limits, not a general untrusted-code sandbox. Paths are validated at the contract boundary,
+then filesystem components are inspected for symlinks. A same-parent temporary directory is published only
+on successful preparation; existing directories are not overwritten. Concurrent edits/writes are unsupported.
 
-Projects without `motion.json` retain the simpler Motion V1 `screen_text` path. Import/validate/export preserve
-the optional plan; `init` embeds its generated schema. This compatibility is intentional: richer explainers do
-not complicate the minimum static-material workflow.
+Actual PATH-empty CLI tests cover old minimal projects, layered files, pure copy, semantic instructions,
+malformed input, non-overwrite and optional preview guardrails. Synthetic rasters/audio verify file behavior,
+not artwork quality, narration quality or user-version Jianying UI acceptance.
 
-## Failure and compatibility
-
-Boundary checks reject unsupported formats, bad references, missing/corrupt media, traversal and
-material symlinks. JSON limits are 2 MiB; source remains 64 KiB; raster files are at most50 MiB,
-8192 pixels per side with256 MiB decoder allocation; WAV at most256 MiB and one hour.
-These are supported-product limits, not a general untrusted-code sandbox.
-
-Import/export publish from a same-parent temporary directory after preparation succeeds. Existing
-content/ and exports are not overwritten. A local single writer is assumed; simultaneous edits to
-source assets during copying are unsupported. Partial work is removed on normal errors.
-
-The optional old API/media pipeline stays in pipeline.rs and renderer/remotion/. It has a distinct
-root-level project format and separate dependency requirements. New material projects cannot
-silently invoke produce/render. Existing Timeline and paid-provider behavior are preserved.
-
-## Engineering and verification
-
-EP-001 remains active under the existing RepoFoundry controller-unavailable template fallback.
-No Harness activation, accepted ADR, approved Design, sealed Checkpoint or formal archival is claimed.
-
-The chat-materials CI job runs Clippy, Rust tests and scripts/chat_smoke.py with the actual CLI.
-Tests explicitly clear keys/PATH for the primary path. Synthetic rasters/silent WAVs prove file and
-contract behavior, not model output quality. The original full-media CI remains independently visible.
+The owner's material-first clarification is captured in docs/exec-plans/active/ep-001_v1/editor-materials-first.md.
+EP-001 remains active with the documented RepoFoundry controller-unavailable bounded-record fallback. No
+Harness activation, accepted ADR, sealed checkpoint or formal archival approval is inferred or invented.
