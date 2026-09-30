@@ -19,7 +19,7 @@ mindframe init /path/to/article.md --out projects/article --preset douyin
 ```
 
 上传 source.md 和 chat-request.md。新版 init 在编译时内嵌作者提示、完整 Skill、工作表以及
-Storyboard/Assets/Motion/Layers Schema；在仓库外运行无需重新上网查这些文件。
+整篇口播规则、主图与母版评审规则以及 Storyboard/Assets/Motion/Layers Schema；在仓库外运行无需重新上网查这些文件。
 旧请求不会自动改写，使用新目录初始化或把新 Skill 作为补充。
 
 示例要求：
@@ -32,6 +32,11 @@ Storyboard/Assets/Motion/Layers Schema；在仓库外运行无需重新上网查
 
 背景负责低干扰的阅读氛围；重点层呈现概念、公式和必要关系；口播负责解释；字幕由实际声音决定。
 保持简单，不把所有段落画进海报，不强制每镜更换背景，也不为纯文字概念生成无用装饰。
+
+主图设计、生成提示或回传图评审参考 [主图与母版评审](../skills/mindframe-visual-director/references/visual-review.md)。
+先区分背景、解释图与封面；背景负责承托内容，解释图负责关系。用户自行生成时只交建议和评审。
+可先验证一张母版，再按真实布局需要扩展；不固定四张，不为保持新鲜感重复换装饰。
+裸图、实际内容叠加、手机阅读及播放效果分别观察，不用风格或文件校验推断传播效果。
 
 storyboard.json 是唯一口播编辑源。assets.json 是主图与后期叠字清单。
 layers.json 可选，登记实际叠加图片；motion.json 可选，组织逐句状态，导出人能照着做的剪辑指导。

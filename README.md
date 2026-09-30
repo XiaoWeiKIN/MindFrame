@@ -25,7 +25,7 @@ mindframe init /path/to/article.md --out projects/article --preset douyin
 
 `init` 接受一篇 UTF-8 Markdown（上限64 KiB），生成原文快照、行号副本和 `chat-request.md`。
 将 `source.md` 和请求发到聊天中。请求完整内嵌 [Visual Director](skills/mindframe-visual-director/SKILL.md)、
-工作表、[整篇口播规则](skills/mindframe-author/references/narration.md)及当前真实 Schema。已有项目不会自动更新旧请求；需要新版指导时初始化新目录或补充 Skill 文件。
+工作表、[整篇口播规则](skills/mindframe-author/references/narration.md)、[主图与母版评审](skills/mindframe-visual-director/references/visual-review.md)及当前真实 Schema。已有项目不会自动更新旧请求；需要新版指导时初始化新目录或补充 Skill 文件。
 PDF/Word 需先整理成忠实的 Markdown；CLI 不直接解析它们。
 
 聊天完成后保存实际文件，最小输入仍只有两份 JSON 和真实主图：
@@ -139,7 +139,7 @@ dist/article/
 小图标不按全屏尺寸判错。就算文件通过，也没有自动证明图片美感、文字正确、公式语义、手机阅读或发布效果。
 
 [素材包说明](docs/editor-pack.md) 和 [视觉创作工作流](docs/visual-director.md) 说明文件与职责。
-工作流固定“背景层 / 重点层 / 口播层 / 字幕层”，沿用可替换的 Ocean Depth / 深海星辰风格；
+工作流固定“背景层 / 重点层 / 口播层 / 字幕层”，按用户选择设计风格，Ocean Depth / 深海星辰为可选示例；
 以文字为主，不为了每个概念重新做密集海报。
 
 ## 可选录音与真实字幕

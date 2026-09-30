@@ -20,6 +20,8 @@ storyboard.json 是唯一口播编辑源。assets.json 关联主图和后期重�
 layers.json 登记真实位图。按需要提供 motion.json 的逐句状态，供导出剪辑指导，不主动执行 renderer。
 
 生成素材使用宿主真实图像工具。正文、字幕不要烧进背景；公式保留准确文本，需要位图时单独校对。
+只要主图建议、生成提示或回传图评审时，按 [主图评审规则](../mindframe-visual-director/references/visual-review.md)
+处理，不扩展成生图或剪映操作。背景母版与解释主图分工明确，按用途复用或扩展，不固定图片数量。
 口播与最终声音不同；只有真实录音和核对时间点才提供音频/cues。语音变化后必须重新对齐。
 
 CLI 派生 narration.txt、scripts/、screen-text/、edit-notes/ 等文件，用户不必手写重复稿件。

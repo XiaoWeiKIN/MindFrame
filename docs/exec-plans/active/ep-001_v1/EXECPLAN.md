@@ -40,6 +40,8 @@ network call, FFmpeg, Node or editor installation. The original API/media pipeli
 
 ## Current Snapshot
 
+- Current authoring follow-up: [visual review](visual-review.md) adds role-aware image guidance and embeds it in init;
+  its bounded record tracks local verification. It preserves the existing [narration guidance](narration-authoring.md).
 - Primary init/import/validate/export implementation is tested at c04cb33b3f8782cf5dd2a488ae084cbdc102dcdc.
 - Actions run36569380103, job109409249398 chat-materials: completed success at 2026-09-29T12:42:45Z.
 - Clippy, all 20 Rust tests, Cargo build and actual no-key/PATH-empty CLI smoke passed.
