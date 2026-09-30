@@ -2,7 +2,7 @@
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
-use mindframe_core::{editor::{narration_review, narration_text, scene_edit_note}, materials::{csv_cell, timestamp}};
+use mindframe_core::{editor::{narration_text, scene_edit_note}, materials::{csv_cell, timestamp}};
 use serde_json::{Value, json};
 
 use crate::{materials::Bundle, pipeline::write_json};
@@ -46,11 +46,10 @@ pub(super) fn write(bundle: &Bundle, out: &Path, preset: &str) -> Result<()> {
     // 1. Copy-ready text comes only from current JSON, never from an older script.md export.
     let narration = narration_text(&bundle.board);
     fs::write(out.join("narration.txt"), &narration)?;
-    fs::write(out.join("narration-review.md"), narration_review(&bundle.board, bundle.motion.as_ref()))?;
     fs::write(out.join("subtitles.txt"), &narration)?;
     if let Some(srt) = bundle.assets.subtitles() { fs::write(out.join("subtitles.srt"), srt)?; }
     for dir in ["scripts", "screen-text", "edit-notes"] { fs::create_dir(out.join(dir))?; }
-    let mut guide = String::from("# 剪映制作指南\n\n这是一份素材包，不是剪映原生工程，也没有自动排轨。\n\n先看素材报告中的尺寸、透明性与检查提醒。将图片/叠加图作为独立素材导入；使用 narration.txt 或 scripts/ 下的纯文本配音。完成配音后制作字幕，再设置重点层、转场与效果。最终时长以实际声音为准。\n\nnarration-review.md 对照来源、口播和画面强调，供全文审阅，不代表自动验收。script.md 是简版审稿；不要把审阅标题和注释一起拿去朗读。screen-text/ 仅含后期重点文字，不是字幕。更换声音或语速后不要沿用旧 SRT。\n\n");
+    let mut guide = String::from("# 剪映制作指南\n\n这是一份素材包，不是剪映原生工程，也没有自动排轨。\n\n先看素材报告中的尺寸、透明性与检查提醒。将图片/叠加图作为独立素材导入；使用 narration.txt 或 scripts/ 下的纯文本配音。完成配音后制作字幕，再设置重点层、转场与效果。最终时长以实际声音为准。\n\nscript.md 用于审稿；不要把它的标题和注释一起拿去朗读。screen-text/ 仅含后期重点文字，不是字幕。更换声音或语速后不要沿用旧 SRT。\n\n");
     let mut csv = String::from("\u{feff}scene_id,start,end,image,narration,screen_text,transition\r\n");
     for (index, scene) in bundle.board.scenes.iter().enumerate() {
         let stem = format!("{:03}-{}", index + 1, scene.id);
@@ -93,7 +92,6 @@ pub(super) fn write(bundle: &Bundle, out: &Path, preset: &str) -> Result<()> {
         "MindFrame 剪映素材包（不是原生草稿或自动时间线）\n\n",
         "从 edit-guide.md 开始；shot-list.csv 保留场景顺序。\n",
         "narration.txt 是全片纯口播；scripts/ 是逐镜纯口播。不要把 script.md 的审稿标题拿去配音。\n",
-        "narration-review.md 对照每幕的来源、口播与显式画面强调；用于人工审阅，不是质量评分或配音输入。\n",
         "images/ 是主画面；有 overlays/ 时作为独立叠加位图导入，不会自动排轨。\n",
         "screen-text/ 是可复制的重点文字；edit-notes/ 说明讲到哪句话时出现、保持或替换。\n",
         "配音、字幕时序、BGM、转场、特效与最终导出在剪映完成；具体入口由你的版本决定。\n",

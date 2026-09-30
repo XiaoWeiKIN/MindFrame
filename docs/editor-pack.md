@@ -18,10 +18,7 @@ mindframe export projects/article --target jianying --out dist/article
 
 narration.txt 是纯口播全文；scripts/ 每镜一份纯口播，没有自动添加的标题、编号或 Markdown。
 screen-text/ 与 scripts/ 使用同一场景编号，只含后期重点文字；空文件表示未提供，别从图片意图猜内容。
-narration-review.md 将每幕的观点来源、逐句口播和 motion 中显式标记的画面强调放在一起。
-它不推断语义质量、声音重音或时间；缺少 motion 的旧项目仍可生成审阅稿。使用者按所选体裁审阅全文的理解路径，修改 storyboard 后重新导出。
-
-script.md 是简版审稿。导出文本从当前 JSON 生成，修改派生文件不会回写工程。
+script.md 是审稿版。导出文本从当前 JSON 生成，修改派生文件不会回写工程。
 
 images/ 是主画面，overlays/ 是可选附加位图，cover.* 可选。透明像素和尺寸见 material-report.json。
 图像字节原样复制；有透明通道不代表一定有透明像素，不透明图解会提示遮挡。
