@@ -21,6 +21,10 @@ source.md 是这次唯一选定的原文。source.numbered.txt 的数字只是�
 
 ## 必需交付：storyboard.json / assets.json / 实际图片
 
+知识讲解采用后附的完整口播规则：默认观众未读原文，直接讲知识；保留核心专业判断，
+用案例、推理和释义使其可理解。按全文审阅，不把所有表述降成泛泛口语，也不机械堆砌术语。
+用户指定逐字朗读或文章导读时遵循其体裁。停顿、重音写制作记录，不混进 narration。
+
 严格使用附后的实际 Schema，schema_version 为 1。storyboard.json 是唯一口播编辑源。
 key_points.sources 引用 source.md 的真实 1 基 line_start/line_end 与逐字 quote。
 scene.point_refs 是关键点的 1 基索引；scene.id 使用 ASCII 字母、数字、连字符或下划线。
@@ -67,6 +71,7 @@ text 精确匹配，start_ms/end_ms 顺序不重叠且不超过录音。句内�
     mindframe export projects/article --target jianying --out dist/article
 
 导出 narration.txt、逐镜 scripts/ 与 screen-text/、edit-guide.md / edit-notes/、shot-list.csv，
+以及 narration-review.md（逐幕来源、口播、画面重点的审阅视图，不是配音输入或自动评分），
 以及实际图片、可选 overlays/、封面、录音与真实时间点支持的 SRT。文本派生文件无需用户再手写。
 visual-plan.md（must_keep、原始LaTeX、P0/P1/P2、布局）与 review.md 是私有工作记录；当前 import/export 不会自动保留，需单独保存。
 文件校验不等于内容、读音、美感、手机可读性或剪映 UI 验收；未实际观察的项目记 unverified。

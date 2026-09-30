@@ -134,9 +134,51 @@ fn old_minimum_pack_stays_usable_and_new_exports_follow_current_json() {
     assert!(fs::read_to_string(root.join("v2/narration.txt")).unwrap().starts_with("改稿后这句"));
     assert!(fs::read_to_string(root.join("v2/edit-notes/001-logic.md")).unwrap().contains("改稿后这句"));
     assert_eq!(fs::read_to_string(root.join("v2/screen-text/001-logic.txt")).unwrap(), "新的屏幕文字");
+    let review = fs::read_to_string(root.join("v2/narration-review.md")).unwrap();
+    assert!(review.contains("改稿后这句才是编辑源。"));
+    assert!(!review.contains("先看当前条件。"));
+    assert!(!review.contains("stale generated file"));
+    for scene in ["logic", "formula"] { assert!(review.contains(&format!("## 场景 {scene}"))); }
+    assert!(!review.contains("画面强调 point（"));
     let before = fs::read(root.join("v1/narration.txt")).unwrap();
     assert!(!call(root, &["export", "project", "--out", "v1"]).status.success());
     assert_eq!(fs::read(root.join("v1/narration.txt")).unwrap(), before);
+}
+
+#[test]
+fn narration_review_keeps_scene_provenance_and_explicit_visual_emphasis_out_of_speech() {
+    let (temp, bundle) = setup(false);
+    let root = temp.path();
+    let mut board = read(&bundle.join("storyboard.json"));
+    board["key_points"].as_array_mut().unwrap().push(json!({
+        "text":"仅属于第二幕的观点。",
+        "sources":[{"line_start":2,"line_end":2,"quote":"有限干预影响后续反馈。"}]
+    }));
+    board["scenes"][1]["point_refs"] = json!([2]);
+    save(&bundle.join("storyboard.json"), &board);
+    fs::write(bundle.join("narration-review.md"), "STALE REVIEW MUST NOT BE READ").unwrap();
+    ok(root, &["import", "project", "--from", "bundle"]);
+    ok(root, &["export", "project", "--out", "export"]);
+    let out = root.join("export");
+    let review = fs::read_to_string(out.join("narration-review.md")).unwrap();
+    let (logic, formula) = review.split_once("## 场景 formula").unwrap();
+    assert!(!logic.contains("仅属于第二幕的观点"));
+    assert!(formula.contains("仅属于第二幕的观点"));
+    assert!(logic.contains("原文 L2–L2：\n\n    有限干预影响后续反馈。"));
+    assert!(!review.contains("STALE REVIEW"));
+    assert!(!review.contains("画面强调 you（")); // Explicitly un-emphasized stat.
+    let (_, triggered) = logic.split_once("#### narration[1]").unwrap();
+    let (triggered, later) = triggered.split_once("#### narration[2]").unwrap();
+    assert!(triggered.contains("接着调整一次行动。"));
+    assert!(triggered.contains("画面强调 wang（"));
+    assert!(triggered.contains("画面强调 point（"));
+    assert!(!later.contains("画面强调 point（")); // The next full state clears it.
+    assert!(formula.contains(FORMULA));
+    assert!(formula.contains("强调：A_t"));
+    let narration = fs::read_to_string(out.join("narration.txt")).unwrap();
+    assert_eq!(narration, "先看当前条件。\n接着调整一次行动。\n再观察反馈。\n这是示意模型，不是预测定律。\n");
+    assert_eq!(fs::read_to_string(out.join("subtitles.txt")).unwrap(), narration);
+    assert!(!out.join("subtitles.srt").exists());
 }
 
 #[test]
@@ -201,6 +243,7 @@ fn schema_and_help_keep_editor_pack_primary_and_preview_optional() {
     let (temp, _) = setup(false);
     let root = temp.path();
     let request = fs::read_to_string(root.join("project/chat-request.md")).unwrap();
+    assert!(request.contains(include_str!("../../../skills/mindframe-author/references/narration.md")));
     for rule in ["## Layers JSON Schema（可选）", "## Motion JSON Schema（可选）", "剪映素材包", "不默认生成 MP4", "不要求音频或 cues"] { assert!(request.contains(rule), "missing {rule}"); }
     ok(root, &["schema", "--out", "schemas"]);
     assert_eq!(read(&root.join("schemas/layers.schema.json"))["additionalProperties"], false);
