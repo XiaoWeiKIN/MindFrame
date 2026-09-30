@@ -1,3 +1,4 @@
+pub mod editor;
 pub mod materials;
 
 use std::collections::HashSet;
@@ -37,7 +38,7 @@ pub struct Storyboard {
 #[serde(deny_unknown_fields)]
 pub struct Scene {
     pub id: String,
-    /// One short utterance per item. Each is synthesized and timed separately.
+    /// Short spoken sentences. Text alone does not establish audio or timestamps.
     pub narration: Vec<String>,
     /// One-based indices into key_points; these are provenance, not fact proofs.
     pub point_refs: Vec<usize>,

@@ -1,15 +1,17 @@
+mod editor_export;
 mod materials;
 mod pipeline;
+mod preview;
 
 use std::{fs, path::PathBuf};
 
 use anyhow::{Result, ensure};
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use mindframe_core::{Storyboard, Timeline, materials::{Assets, MotionPlan, Project}};
+use mindframe_core::{Storyboard, Timeline, editor::Layers, materials::{Assets, MotionPlan, Project}};
 use pipeline::Config;
 
 #[derive(Parser)]
-#[command(name = "mindframe", version, about = "把聊天创作的知识内容整理成剪辑素材，并可渲染轻量知识讲解视频")]
+#[command(name = "mindframe", version, about = "把知识创作整理成剪映素材包；配音、字幕、特效与成片在剪映完成")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -24,34 +26,39 @@ pub struct RenderOptions {
     preset: Preset,
     #[arg(long, default_value = "renderer/remotion")]
     renderer: PathBuf,
-    /// Resolution multiplier. 1 is full HD; smaller values are explicit previews.
+    /// Resolution multiplier for the optional legacy renderer.
     #[arg(long, default_value_t = 1.0)]
     scale: f64,
 }
 
 #[derive(Subcommand)]
 enum Command {
-    /// Create a local source snapshot and an authoring handoff for chat. No API calls.
+    /// Create a source snapshot and chat handoff for an editor material pack. No API calls.
     Init {
         input: PathBuf,
         #[arg(long)] out: PathBuf,
         #[arg(long, value_parser = ["douyin", "bilibili"], default_value = "douyin")]
         preset: String,
     },
-    /// Import an authored directory containing storyboard.json, assets.json and actual media.
+    /// Import storyboard/assets, optional layers/edit plan and actual files. No media tools.
     Import {
         project: PathBuf,
         #[arg(long)] from: PathBuf,
     },
-    /// Export standard media and editing instructions, not a native editor draft.
+    /// Inspect local materials; file validity is not a publishing-quality approval.
+    Validate { project: PathBuf },
+    /// Export images, plain scripts and human editing instructions. No audio/timing required.
     Export {
         project: PathBuf,
         #[arg(long, value_parser = ["jianying"], default_value = "jianying")]
         target: String,
         #[arg(long)] out: PathBuf,
     },
-    /// Render a chat-material project as a lightweight knowledge lecture. Requires real WAV + reviewed cues.
-    Motion {
+    /// Generate JSON Schemas from the Rust contract types.
+    Schema { #[arg(long, default_value = "schemas")] out: PathBuf },
+    /// Optional structural preview, NOT a final video. Requires Node, real WAV and reviewed cues.
+    #[command(alias = "motion")]
+    Preview {
         project: PathBuf,
         #[arg(long)] out: PathBuf,
         #[arg(long, value_parser = ["douyin", "bilibili"], default_value = "douyin")]
@@ -61,35 +68,31 @@ enum Command {
         #[arg(long, default_value_t = 1.0)]
         scale: f64,
     },
-    /// Validate chat materials or a legacy storyboard project, without model calls.
-    Validate { project: PathBuf },
-    /// Generate JSON Schemas from the Rust contract types.
-    Schema { #[arg(long, default_value = "schemas")] out: PathBuf },
-    /// Optional API workflow: plan content through the configured LLM (may incur charges).
+    /// Legacy opt-in API workflow (may incur charges); not needed for editor packs.
     Plan {
         input: PathBuf,
         #[arg(long)] out: PathBuf,
         #[arg(long, default_value = "mindframe.toml")] config: PathBuf,
     },
-    /// Optional API workflow: planning, media production and MP4 rendering.
+    /// Legacy opt-in API/media workflow; not the primary delivery path.
     Build {
         input: PathBuf,
         #[arg(long)] out: PathBuf,
         #[arg(long, default_value = "mindframe.toml")] config: PathBuf,
         #[command(flatten)] render: RenderOptions,
     },
-    /// Optional API workflow: produce media from an edited legacy storyboard project.
+    /// Legacy opt-in API media production from a root-level storyboard project.
     Produce {
         project: PathBuf,
         #[arg(long, default_value = "mindframe.toml")] config: PathBuf,
         #[command(flatten)] render: RenderOptions,
     },
-    /// Re-render an existing legacy timed-media project without model calls.
+    /// Legacy timed-media re-render. Use export for editor material projects.
     Render {
         project: PathBuf,
         #[command(flatten)] render: RenderOptions,
     },
-    /// Curated legacy demo with local eSpeak, not AI-generated content.
+    /// Legacy curated eSpeak demo for development, not publication quality.
     Demo {
         #[arg(long)] out: PathBuf,
         #[command(flatten)] render: RenderOptions,
@@ -101,10 +104,7 @@ fn main() -> Result<()> {
         Command::Init { input, out, preset } => materials::init(&input, &out, preset)?,
         Command::Import { project, from } => materials::import(&project, &from)?,
         Command::Export { project, target: _, out } => materials::export(&project, &out)?,
-        Command::Motion { project, out, preset, renderer, scale } => {
-            ensure!(scale.is_finite() && (0.1..=1.0).contains(&scale), "scale must be in 0.1..=1.0");
-            materials::motion(&project, &out, &preset, &renderer, scale)?;
-        }
+        Command::Preview { project, out, preset, renderer, scale } => preview::render(&project, &out, &preset, &renderer, scale)?,
         Command::Validate { project } => {
             if project.join("project.json").symlink_metadata().is_ok() {
                 materials::validate(&project)?;
@@ -120,6 +120,7 @@ fn main() -> Result<()> {
             pipeline::write_json(&out.join("project.schema.json"), &schemars::schema_for!(Project))?;
             pipeline::write_json(&out.join("assets.schema.json"), &schemars::schema_for!(Assets))?;
             pipeline::write_json(&out.join("motion.schema.json"), &schemars::schema_for!(MotionPlan))?;
+            pipeline::write_json(&out.join("layers.schema.json"), &schemars::schema_for!(Layers))?;
         }
         Command::Plan { input, out, config } => {
             let source = pipeline::read_source(&input)?;
@@ -127,12 +128,10 @@ fn main() -> Result<()> {
             pipeline::plan(&source, &out, &config)?;
         }
         Command::Build { input, out, config, render } => {
-            // 1. 检查输入、配置和本地依赖；不为预检调用收费 API。
             let source = pipeline::read_source(&input)?;
             let config = Config::load(&config)?;
             config.check_media()?;
             pipeline::check_renderer(&render)?;
-            // 2. 先持久化可审查的内容，再生成声音、图片和视频。
             pipeline::plan(&source, &out, &config)?;
             pipeline::produce(&out, &config)?;
             pipeline::render(&out, &render)?;
@@ -145,7 +144,7 @@ fn main() -> Result<()> {
             pipeline::render(&project, &render)?;
         }
         Command::Render { project, render } => {
-            ensure!(!project.join("project.json").try_exists()?, "chat-material projects use export --target jianying; direct Remotion rendering of this format is not implemented");
+            ensure!(!project.join("project.json").try_exists()?, "chat-material projects use export --target jianying; use preview only for optional structural checks");
             pipeline::check_renderer(&render)?;
             pipeline::render(&project, &render)?;
         }
