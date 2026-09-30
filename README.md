@@ -25,7 +25,7 @@ mindframe init /path/to/article.md --out projects/article --preset douyin
 
 `init` 接受一篇 UTF-8 Markdown（上限64 KiB），生成原文快照、行号副本和 `chat-request.md`。
 将 `source.md` 和请求发到聊天中。请求完整内嵌 [Visual Director](skills/mindframe-visual-director/SKILL.md)、
-工作表及当前真实 Schema。已有项目不会自动更新旧请求；需要新版指导时初始化新目录或补充 Skill 文件。
+工作表、[整篇口播规则](skills/mindframe-author/references/narration.md)及当前真实 Schema。已有项目不会自动更新旧请求；需要新版指导时初始化新目录或补充 Skill 文件。
 PDF/Word 需先整理成忠实的 Markdown；CLI 不直接解析它们。
 
 聊天完成后保存实际文件，最小输入仍只有两份 JSON 和真实主图：
@@ -54,6 +54,7 @@ mindframe export projects/article --target jianying --out dist/article
 
 ```text
 dist/article/
+├── narration-review.md  # 逐幕来源、实际口播与画面强调；人工审阅，不自动评分
 ├── narration.txt        # 全片纯口播：不加标题、场景 ID、Markdown 注释
 ├── scripts/             # 001-scene-id.txt：逐镜纯口播
 ├── screen-text/         # 同编号：可复制的后期重点文字，不是字幕
@@ -76,7 +77,7 @@ dist/article/
 └── README.txt
 ```
 
-先看 `edit-guide.md` 和素材报告。将图片分别作为素材导入，用纯口播文本准备声音；配音定稿后再安排字幕，
+先用 `narration-review.md` 审阅全文的专业判断、铺垫和解释，再看 `edit-guide.md` 和素材报告。将图片分别作为素材导入，用纯口播文本准备声音；配音定稿后再安排字幕，
 按逐镜说明放置重点与附加图。`screen-text/` 只包含用户明确提供的后期叠字，空文件表示未提供；不会从
 图片上猜字或自动把标题再叠一次。
 
@@ -180,3 +181,5 @@ python3 scripts/chat_smoke.py --out output/chat-smoke
 原有 `scripts/check.py`、legacy 与 Motion 媒体 CI 保留，不用删断言取得通过。
 当前工作记录：[editor-materials-first](docs/exec-plans/active/ep-001_v1/editor-materials-first.md)；
 父 [EP-001](docs/exec-plans/active/ep-001_v1/EXECPLAN.md) 保持 active，不伪造正式归档。
+
+口播生成与审阅改进记录：[narration-authoring](docs/exec-plans/active/ep-001_v1/narration-authoring.md)。

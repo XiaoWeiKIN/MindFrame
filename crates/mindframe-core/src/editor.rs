@@ -5,7 +5,7 @@ use anyhow::{Result, ensure};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{Scene, Storyboard, Visual, materials::{Cue, MotionElement, MotionScenePlan, MotionSlot, SceneImage, safe_relative_path, timestamp}};
+use crate::{Scene, Storyboard, Visual, materials::{Cue, MotionElement, MotionPlan, MotionScenePlan, MotionSlot, SceneImage, safe_relative_path, timestamp}};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -92,6 +92,43 @@ fn element_description(element: &MotionElement) -> (&str, String) {
         }
     };
     (id.as_str(), format!("位置：{}\n{content}", slot_label(slot)))
+}
+
+/// Review validated authoring data without inferring quality, vocal delivery or timing.
+pub fn narration_review(board: &Storyboard, motion: Option<&MotionPlan>) -> String {
+    let mut out = String::from("# 口播审阅稿\n\n由当前 storyboard.json 与可选 motion.json 派生；修改编辑源后重新导出。此文件含来源和审阅注释，不用于配音；配音使用 narration.txt。\n\n以下是审阅材料，不是质量评分或验收结论。画面强调不等于声音重音；未生成停顿或时间点。\n\n## 全文审阅\n\n- [ ] 按所选体裁，观众能独立理解问题与主张。\n- [ ] 关键专业判断及其限定得到保留，有铺垫、推理和具体解释。\n- [ ] 各段理解路径衔接，避免只改一个例句或反复套同一种句式。\n- [ ] 改稿后重新核对画面语义触发；听感与同步须另行实听。\n\n## 标题\n\n");
+    out.push_str(&block(&board.title));
+    for scene in &board.scenes {
+        out.push_str(&format!("## 场景 {}\n\n### 来源与观点\n\n", scene.id));
+        for index in &scene.point_refs {
+            let point = &board.key_points[index - 1];
+            out.push_str(&format!("观点 {index}（创作者选取，不代表已验证）：\n\n"));
+            out.push_str(&block(&point.text));
+            for source in &point.sources {
+                out.push_str(&format!("原文 L{}–L{}：\n\n", source.line_start, source.line_end));
+                out.push_str(&block(&source.quote));
+            }
+        }
+        let plan = motion.and_then(|plan| plan.scenes.iter().find(|plan| plan.scene_id == scene.id));
+        if plan.is_none() {
+            out.push_str("未提供本幕逐句话面计划；仍需审阅口播，不据此认定缺少讲解重点。\n\n");
+        }
+        out.push_str("### 实际口播与本句触发的画面强调\n\n只列显式 emphasis 或 formula.highlight；保持中的画面和完整变化见 edit-notes。空缺不表示本句没有演讲重音。\n\n");
+        for (index, text) in scene.narration.iter().enumerate() {
+            out.push_str(&format!("#### narration[{index}]\n\n"));
+            out.push_str(&block(text));
+            if let Some(step) = plan.and_then(|plan| plan.steps.iter().find(|step| step.utterance_index == index)) {
+                for element in &step.elements {
+                    if matches!(element, MotionElement::Text { emphasis: true, .. } | MotionElement::Stat { emphasis: true, .. } | MotionElement::Formula { highlight: Some(_), .. }) {
+                        let (id, description) = element_description(element);
+                        out.push_str(&format!("画面强调 {id}（不作为配音输入）：\n\n"));
+                        out.push_str(&block(&description));
+                    }
+                }
+            }
+        }
+    }
+    out
 }
 
 /// Produce human editing instructions from validated contracts. No inference of speech timing.

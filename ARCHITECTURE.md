@@ -18,7 +18,8 @@ flowchart LR
 
 Two Rust crates remain. core/lib.rs owns unchanged Storyboard/legacy Timeline v1; core/materials.rs owns
 unchanged Project/Assets/Cue/MotionPlan v1. core/editor.rs adds optional Layers v1 plus pure editorial text
-formatting. Layers is a separate manifest, not new fields smuggled into the strict Assets schema.
+formatting, including a derived narration review of source references, speech and explicit visual emphasis.
+This review is not a semantic classifier, vocal-delivery plan or quality score. Layers is a separate manifest, not new fields smuggled into the strict Assets schema.
 
 A base image remains mandatory per scene. Layers registers additional actual rasters with scene ID, per-scene
 layer ID, file, label and optional narration index. There are at most12 overlays per scene. Core validates
@@ -34,7 +35,7 @@ Only explicit preview rendering translates reviewed cue times to frames.
 
 cli/materials.rs handles init/import/validate/export, actual PNG/JPEG/WebP decoding, PCM16 WAV inspection,
 path/symlink controls and atomic fresh-directory publication. cli/editor_export.rs derives narration.txt,
-scripts/, screen-text/, edit-guide.md, edit-notes/, existing shot-list.csv and the material report.
+narration-review.md, scripts/, screen-text/, edit-guide.md, edit-notes/, existing shot-list.csv and the material report.
 These modules never invoke Node, FFmpeg, TTS, ASR or an editor. They use existing serialization/filesystem
 helpers only. No new dependency, provider framework, database, background job or paid service is added.
 
