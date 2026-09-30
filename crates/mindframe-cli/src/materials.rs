@@ -182,12 +182,13 @@ pub fn init(input: &Path, out: &Path, preset: String) -> Result<()> {
         let numbered = source.lines().enumerate().map(|(i, line)| format!("{}: {line}\n", i + 1)).collect::<String>();
         fs::write(dir.join("source.numbered.txt"), numbered)?;
         let request = format!(
-            "{}\n\n目标布局：{}。\n\n## 视觉导演工作流（完整内嵌）\n{}\n\n## 逐页工作表（完整内嵌）\n{}\n\n## 知识讲解口播规则（完整内嵌）\n{}\n\n## 主图与母版评审（完整内嵌）\n{}\n\n## Storyboard JSON Schema\n```json\n{}\n```\n\n## Assets JSON Schema\n```json\n{}\n```\n\n## Motion JSON Schema（可选）\n```json\n{}\n```\n\n## Layers JSON Schema（可选）\n```json\n{}\n```\n",
+            "{}\n\n目标布局：{}。\n\n## 视觉导演工作流（完整内嵌）\n{}\n\n## 逐页工作表（完整内嵌）\n{}\n\n## 知识讲解口播规则（完整内嵌）\n{}\n\n## 主图与母版评审（完整内嵌）\n{}\n\n## 图解提示词模板（完整内嵌）\n{}\n\n## Storyboard JSON Schema\n```json\n{}\n```\n\n## Assets JSON Schema\n```json\n{}\n```\n\n## Motion JSON Schema（可选）\n```json\n{}\n```\n\n## Layers JSON Schema（可选）\n```json\n{}\n```\n",
             include_str!("../../../prompts/chat-authoring.md"), project.preset,
             include_str!("../../../skills/mindframe-visual-director/SKILL.md"),
             include_str!("../../../skills/mindframe-visual-director/references/page-plan.md"),
             include_str!("../../../skills/mindframe-author/references/narration.md"),
             include_str!("../../../skills/mindframe-visual-director/references/visual-review.md"),
+            include_str!("../../../skills/mindframe-visual-director/references/diagram-prompts.md"),
             serde_json::to_string_pretty(&schemars::schema_for!(Storyboard))?,
             serde_json::to_string_pretty(&schemars::schema_for!(Assets))?,
             serde_json::to_string_pretty(&schemars::schema_for!(MotionPlan))?,
