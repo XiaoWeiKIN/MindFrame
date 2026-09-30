@@ -2,14 +2,18 @@
 
 ## Product boundary: editor material pack
 
-The authoring host owns interpretation, source-faithful narration, emphasis copy and actual image generation.
+The authoring host owns interpretation, source-faithful narration, emphasis copy, diagram prompts and returned-image review.
+By default the user generates images in their chosen tool and returns the files; host generation is an explicit alternative.
+Prompt delivery is an authoring stage, not a media import contract. Only reviewed, actual files enter media manifests.
 MindFrame owns local validation and editor handoff. Jianying is the intended place for voice, caption timing,
 transitions, effects and final editing. No model call, audio, Node or FFmpeg is required by the primary CLI path.
 
 ```mermaid
 flowchart LR
-  Source[Explicit document] --> Chat[Authoring + actual images]
-  Chat --> Import[Rust import and validation]
+  Source[Explicit document] --> Chat[Narration + diagram prompts]
+  Chat --> User[User generates and returns images]
+  User --> Review[Review and scene mapping]
+  Review --> Import[Rust import and validation]
   Import --> Pack[Media + plain copy + semantic editing notes]
   Pack --> Editor[Jianying production]
 ```

@@ -7,6 +7,7 @@ use serde_json::Value;
 
 const DIRECTOR: &str = include_str!("../../../skills/mindframe-visual-director/SKILL.md");
 const TEMPLATE: &str = include_str!("../../../skills/mindframe-visual-director/references/page-plan.md");
+const VISUAL_REVIEW: &str = include_str!("../../../skills/mindframe-visual-director/references/visual-review.md");
 const AUTHOR: &str = include_str!("../../../prompts/chat-authoring.md");
 const SOURCE: &str = include_str!("../../../skills/mindframe-visual-director/examples/source.md");
 const BOARD: &str = include_str!("../../../skills/mindframe-visual-director/examples/storyboard.example.json");
@@ -27,7 +28,7 @@ fn init_embeds_complete_visual_guidance_outside_the_repository() {
     fs::write(temp.path().join("article.md"), SOURCE).unwrap();
     ok(temp.path(), &["init", "article.md", "--out", "project", "--preset", "douyin"]);
     let request = fs::read_to_string(temp.path().join("project/chat-request.md")).unwrap();
-    for guidance in [AUTHOR, DIRECTOR, TEMPLATE] {
+    for guidance in [AUTHOR, DIRECTOR, TEMPLATE, VISUAL_REVIEW] {
         assert!(request.contains(guidance), "init must embed canonical guidance, not just repository links");
     }
     assert!(request.contains("目标布局：douyin"));
